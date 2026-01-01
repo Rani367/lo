@@ -12,3 +12,11 @@ repository.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 directories.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+# Validates the ported orb WGSL (Spike A) without needing a GPU. Pinned to the
+# same naga the bin's wgpu (25 — egui-wgpu 0.32's cohort) compiles, so validation
+# matches the real GPU compiler and the workspace keeps a single naga version.
+naga = { version = "25", features = ["wgsl-in"] }
