@@ -1,0 +1,23 @@
+# Lo / J.A.R.V.I.S — pure-native Rust rewrite.
+#
+# Workspace. `lo-core` holds the pure, dependency-light logic (config, the brain
+# agent loop + SSE parsing, backend selection + download-URL resolution + the RAM
+# ladder, the tool registry + safety gate + SSRF guard + filesystem sandbox, TTS
+# chunking) so it builds fast and is exhaustively unit-tested without dragging in
+# the GPU / audio / ML native toolchain. The `lo` binary crate (added in a later
+# phase) layers winit + wgpu + cpal + whisper-rs + ort on top.
+[workspace]
+resolver = "2"
+members = ["crates/lo-core", "crates/lo"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+# rubato (1.85) and sysinfo (0.39) set the floor; pin the whole workspace here.
+rust-version = "1.85"
+license = "MIT"
+authors = ["Rani367 <rani2011367@gmail.com>"]
+repository = "https://github.com/Rani367/jarvis"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
