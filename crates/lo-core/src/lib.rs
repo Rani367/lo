@@ -13,3 +13,15 @@
 //! drives these building blocks.
 
 pub mod backends;
+pub mod brain;
+pub mod config;
+pub mod shaders;
+pub mod text;
+pub mod tools;
+pub mod types;
+
+pub use config::LoSettings;
+pub use types::{
+    ActivationMode, BackendChoice, BackendKind, ChatMessage, ChatRole, ChatTurnResult, LoState,
+    LocalStatus, ModelRecommendation,
+};
