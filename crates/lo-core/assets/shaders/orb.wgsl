@@ -55,3 +55,26 @@ struct Uniforms {
 
 // Full-screen triangle: vertex 0 → (-1,-1), 1 → (-1, 3), 2 → (3, -1).
 @vertex
+fn vs_main(@builtin(vertex_index) vid: u32) -> @builtin(position) vec4<f32> {
+    let x = select(-1.0, 3.0, vid == 2u);
+    let y = select(-1.0, 3.0, vid == 1u);
+    return vec4<f32>(x, y, 0.0, 1.0);
+}
+
+fn hash21(p_in: vec2<f32>) -> f32 {
+    var p = fract(p_in * vec2<f32>(123.34, 345.45));
+    p = p + dot(p, p + 34.345);
+    return fract(p.x * p.y);
+}
+
+fn vnoise(p: vec2<f32>) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let uu = f * f * (3.0 - 2.0 * f);
+    let a = hash21(i);
+    let b = hash21(i + vec2<f32>(1.0, 0.0));
+    let c = hash21(i + vec2<f32>(0.0, 1.0));
+    let d = hash21(i + vec2<f32>(1.0, 1.0));
+    return mix(mix(a, b, uu.x), mix(c, d, uu.x), uu.y);
+}
+
