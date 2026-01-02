@@ -32,3 +32,26 @@
 //     96    bg     : vec4<f32>
 //    112    spec   : array<vec4<f32>, 4>  (16 bands; currently unused)
 //    -> total size 176 bytes.
+
+struct Uniforms {
+    res: vec2<f32>,
+    time: f32,
+    level: f32,
+    intensity: f32,
+    turb: f32,
+    pulse: f32,
+    breathe: f32,
+    reveal: f32,
+    lift: f32,
+    _pad0: vec2<f32>,
+    core: vec4<f32>,
+    mid: vec4<f32>,
+    edge: vec4<f32>,
+    bg: vec4<f32>,
+    spec: array<vec4<f32>, 4>,
+};
+
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+// Full-screen triangle: vertex 0 → (-1,-1), 1 → (-1, 3), 2 → (3, -1).
+@vertex
