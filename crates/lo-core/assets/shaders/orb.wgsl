@@ -147,3 +147,20 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
     }
     lit = lit + mix(u.mid.xyz, u.core.xyz, 0.6) * emb * 0.6 * smoothstep(0.6, 0.12, d) * u.reveal;
 
+    // background dawn field
+    let bgGlow = exp(-d * 1.4) * 0.5;
+    var bg = u.bg.xyz + mix(u.edge.xyz, u.mid.xyz, 0.3) * bgGlow * 0.22;
+    bg = bg + u.bg.xyz * (1.0 - frag.y / u.res.y) * 0.25;
+    // broad, smooth ambient lift so the upper field never crushes to a flat
+    // near-black plateau on high-contrast panels (lift == 0.0 is the original look).
+    bg = bg + mix(u.mid.xyz, u.edge.xyz, 0.6) * exp(-d * 0.6) * u.lift;
+
+    var outc = bg + lit;
+
+    // fine grain + warm vignette
+    outc = outc + (hash21(frag + fract(t) * vec2<f32>(13.0, 7.0)) - 0.5) * 0.018;
+    let vig = smoothstep(1.3, 0.35, d);
+    outc = outc * mix(0.8, 1.0, vig);
+
+    return vec4<f32>(max(outc, vec3<f32>(0.0)), 1.0);
+}
