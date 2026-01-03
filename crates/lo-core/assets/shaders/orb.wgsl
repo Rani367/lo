@@ -101,3 +101,26 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
     let d = length(p);
 
     // domain-warped organic field + a finer internal flow
+    let q = vec2<f32>(
+        fbm(p * 1.6 + vec2<f32>(0.0, t * 0.06)),
+        fbm(p * 1.6 + vec2<f32>(5.2, -t * 0.05)),
+    );
+    let n = fbm(p * 2.1 + q * (0.6 + u.turb) + t * 0.05);
+    let flow = fbm(p * 3.4 + q * 1.7 - vec2<f32>(0.0, t * 0.13));
+
+    var baseR = 0.25 * (1.0 + 0.05 * sin(t * 1.3) * u.breathe + 0.11 * u.level + u.pulse * 0.04 * sin(t * 2.1));
+    baseR = baseR * mix(0.6, 1.0, u.reveal);
+
+    // organic, breathing boundary (voice-reactive via `level` only)
+    let bnd = baseR + (n - 0.5) * 0.22 * (0.5 + u.turb) + (fbm(p * 4.2 - vec2<f32>(t * 0.1, 0.0)) - 0.5) * 0.05;
+    let body = smoothstep(bnd + 0.12, bnd - 0.05, d);
+
+    // colour by radius, with flowing internal filaments
+    let cm = clamp(d / max(bnd * 1.05, 0.001), 0.0, 1.0);
+    var col = mix(u.core.xyz, u.mid.xyz, smoothstep(0.0, 0.62, cm + (flow - 0.5) * 0.5));
+    col = mix(col, u.edge.xyz, smoothstep(0.5, 1.0, cm + (n - 0.5) * 0.15));
+    let fil = smoothstep(0.5, 0.95, flow) * (1.0 - cm); // hot tendrils toward the centre
+    col = col + u.core.xyz * fil * 0.45;
+    col = col * body;
+
+    // inner hot core
