@@ -78,3 +78,26 @@ fn vnoise(p: vec2<f32>) -> f32 {
     return mix(mix(a, b, uu.x), mix(c, d, uu.x), uu.y);
 }
 
+fn fbm(p_in: vec2<f32>) -> f32 {
+    var s = 0.0;
+    var a = 0.5;
+    var p = p_in;
+    // GLSL mat2(1.6,1.2,-1.2,1.6) is column-major: columns (1.6,1.2) & (-1.2,1.6).
+    let m = mat2x2<f32>(vec2<f32>(1.6, 1.2), vec2<f32>(-1.2, 1.6));
+    for (var i = 0; i < 5; i = i + 1) {
+        s = s + a * vnoise(p);
+        p = m * p;
+        a = a * 0.5;
+    }
+    return s;
+}
+
+@fragment
+fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+    // Flip Y so `frag` matches WebGL's bottom-left gl_FragCoord origin.
+    let frag = vec2<f32>(pos.x, u.res.y - pos.y);
+    let p = (frag - 0.5 * u.res) / u.res.y; // y-normalised, centred
+    let t = u.time;
+    let d = length(p);
+
+    // domain-warped organic field + a finer internal flow
