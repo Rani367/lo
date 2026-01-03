@@ -124,3 +124,26 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
     col = col * body;
 
     // inner hot core
+    let hot = smoothstep(bnd * 0.6, 0.0, d);
+    col = col + u.core.xyz * hot * (0.3 + 0.7 * u.level);
+
+    // additive bloom halo
+    let halo = exp(-max(d - bnd, 0.0) * 6.5);
+    let bloom = mix(u.mid.xyz, u.edge.xyz, 0.4) * halo * 0.75;
+
+    var lit = (col + bloom) * u.intensity * (0.45 + 0.55 * u.reveal);
+
+    // drifting embers (3 layers)
+    var emb = 0.0;
+    for (var i = 0; i < 3; i = i + 1) {
+        let fi = f32(i);
+        var gp = p * (3.0 + fi * 1.4);
+        gp.y = gp.y + t * (0.05 + 0.025 * fi);
+        let cell = floor(gp);
+        let h = hash21(cell + fi * 7.1);
+        let cc = fract(gp) - 0.5;
+        let spark = smoothstep(0.08, 0.0, length(cc)) * step(0.968, h);
+        emb = emb + spark * (0.5 + 0.5 * sin(t * 3.0 + h * 30.0));
+    }
+    lit = lit + mix(u.mid.xyz, u.core.xyz, 0.6) * emb * 0.6 * smoothstep(0.6, 0.12, d) * u.reveal;
+
