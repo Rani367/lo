@@ -73,3 +73,26 @@ pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String>
         .filter(|n| {
             let lc = n.to_lowercase();
             plat_toks.iter().any(|p| lc.contains(p)) && lc.contains(arch_tok)
+        })
+        .collect();
+
+    if candidates.is_empty() {
+        return None;
+    }
+
+    let wants_accel = !target.variant.is_empty() && target.variant != "cpu";
+    if wants_accel {
+        let v = target.variant.to_lowercase();
+        let accel: Vec<&String> = candidates
+            .iter()
+            .copied()
+            .filter(|n| n.to_lowercase().contains(&v))
+            .collect();
+        if !accel.is_empty() {
+            return shortest(&accel);
+        }
+    }
+
+    // Baseline: prefer an explicit `cpu` build (Windows), else one with no accel token.
+    let explicit_cpu: Vec<&String> = candidates
+        .iter()
