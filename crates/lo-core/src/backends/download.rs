@@ -50,3 +50,26 @@ impl HostTarget<'_> {
 /// prefer that token.
 pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String> {
     let plat_toks: &[&str] = match target.platform {
+        "darwin" => &["macos"],
+        "win32" => &["win"],
+        _ => &["ubuntu", "linux"],
+    };
+    let arch_tok = if target.arch == "arm64" {
+        "arm64"
+    } else {
+        "x64"
+    };
+
+    let zips: Vec<&String> = names
+        .iter()
+        .filter(|n| {
+            let lc = n.to_lowercase();
+            lc.ends_with(".zip") && lc.contains("bin")
+        })
+        .collect();
+
+    let candidates: Vec<&String> = zips
+        .into_iter()
+        .filter(|n| {
+            let lc = n.to_lowercase();
+            plat_toks.iter().any(|p| lc.contains(p)) && lc.contains(arch_tok)
