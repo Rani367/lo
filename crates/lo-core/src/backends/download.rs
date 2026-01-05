@@ -27,3 +27,26 @@ impl HostTarget<'_> {
     /// The current host, mapped from `std::env::consts` to the Node spellings.
     pub fn current(variant: &str) -> HostTarget<'_> {
         let platform = match std::env::consts::OS {
+            "macos" => "darwin",
+            "windows" => "win32",
+            _ => "linux",
+        };
+        let arch = if std::env::consts::ARCH == "aarch64" {
+            "arm64"
+        } else {
+            "x64"
+        };
+        HostTarget {
+            platform,
+            arch,
+            variant,
+        }
+    }
+}
+
+/// Choose the best llama.cpp release asset for this host. Pure (mirrors
+/// `matchLlamaAsset`). `variant` selects the accelerator: `cpu` (default
+/// baseline) prefers the build with no accelerator token; `cuda`/`vulkan`/…
+/// prefer that token.
+pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String> {
+    let plat_toks: &[&str] = match target.platform {
