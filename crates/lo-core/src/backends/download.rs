@@ -119,3 +119,26 @@ pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String>
 
 fn shortest(list: &[&String]) -> Option<String> {
     list.iter().min_by_key(|s| s.len()).map(|s| s.to_string())
+}
+
+/// Resolve a HuggingFace GGUF download URL from a GGUF reference. Accepts
+/// `owner/repo:path/to/file.gguf` or `owner/repo/file.gguf`. Returns `""` when
+/// the input isn't a GGUF reference (mirrors `resolveGgufUrl`).
+pub fn resolve_gguf_url(reference: &str) -> String {
+    let id = reference.trim();
+    if !id.ends_with(".gguf") {
+        return String::new();
+    }
+    if let Some(colon) = id.find(':') {
+        if colon > 0 {
+            let repo = &id[..colon];
+            let file = &id[colon + 1..];
+            return format!("https://huggingface.co/{repo}/resolve/main/{file}?download=true");
+        }
+    }
+    let parts: Vec<&str> = id.split('/').collect();
+    if parts.len() >= 3 {
+        let repo = parts[..2].join("/");
+        let file = parts[2..].join("/");
+        return format!("https://huggingface.co/{repo}/resolve/main/{file}?download=true");
+    }
