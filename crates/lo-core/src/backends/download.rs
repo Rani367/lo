@@ -96,3 +96,26 @@ pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String>
     // Baseline: prefer an explicit `cpu` build (Windows), else one with no accel token.
     let explicit_cpu: Vec<&String> = candidates
         .iter()
+        .copied()
+        .filter(|n| n.to_lowercase().contains("cpu"))
+        .collect();
+    if !explicit_cpu.is_empty() {
+        return shortest(&explicit_cpu);
+    }
+    let no_accel: Vec<&String> = candidates
+        .iter()
+        .copied()
+        .filter(|n| {
+            let lc = n.to_lowercase();
+            !ACCEL_TOKENS.iter().any(|t| lc.contains(t))
+        })
+        .collect();
+    shortest(if no_accel.is_empty() {
+        &candidates
+    } else {
+        &no_accel
+    })
+}
+
+fn shortest(list: &[&String]) -> Option<String> {
+    list.iter().min_by_key(|s| s.len()).map(|s| s.to_string())
