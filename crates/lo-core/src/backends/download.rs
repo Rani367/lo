@@ -142,3 +142,26 @@ pub fn resolve_gguf_url(reference: &str) -> String {
         let file = parts[2..].join("/");
         return format!("https://huggingface.co/{repo}/resolve/main/{file}?download=true");
     }
+    String::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names() -> Vec<String> {
+        // A representative slice of real ggml-org/llama.cpp release asset names.
+        [
+            "llama-b1234-bin-macos-arm64.zip",
+            "llama-b1234-bin-macos-x64.zip",
+            "llama-b1234-bin-ubuntu-x64.zip",
+            "llama-b1234-bin-ubuntu-vulkan-x64.zip",
+            "llama-b1234-bin-win-cpu-x64.zip",
+            "llama-b1234-bin-win-cuda-x64.zip",
+            "llama-b1234-bin-win-vulkan-x64.zip",
+            "cudart-llama-bin-win-cuda-x64.zip", // a dependency archive, not the engine
+            "llama-b1234-bin-win-arm64.zip",
+            "llama-b1234.tar.gz", // not a zip
+        ]
+        .into_iter()
+        .map(String::from)
