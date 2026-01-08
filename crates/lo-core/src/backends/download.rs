@@ -165,3 +165,26 @@ mod tests {
         ]
         .into_iter()
         .map(String::from)
+        .collect()
+    }
+
+    #[test]
+    fn picks_macos_arm64_baseline() {
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
+                platform: "darwin",
+                arch: "arm64",
+                variant: "cpu",
+            },
+        );
+        assert_eq!(got.as_deref(), Some("llama-b1234-bin-macos-arm64.zip"));
+    }
+
+    #[test]
+    fn picks_explicit_cpu_on_windows() {
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
+                platform: "win32",
+                arch: "x64",
