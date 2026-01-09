@@ -234,3 +234,26 @@ mod tests {
     }
 
     #[test]
+    fn no_match_returns_none() {
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
+                platform: "linux",
+                arch: "arm64",
+                variant: "cpu",
+            },
+        );
+        assert_eq!(got, None);
+    }
+
+    #[test]
+    fn gguf_url_from_colon_ref() {
+        assert_eq!(
+            resolve_gguf_url("unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf"),
+            "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-UD-Q4_K_XL.gguf?download=true"
+        );
+    }
+
+    #[test]
+    fn gguf_url_from_slash_ref() {
+        assert_eq!(
