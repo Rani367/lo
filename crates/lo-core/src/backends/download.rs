@@ -188,3 +188,26 @@ mod tests {
             HostTarget {
                 platform: "win32",
                 arch: "x64",
+                variant: "cpu",
+            },
+        );
+        assert_eq!(got.as_deref(), Some("llama-b1234-bin-win-cpu-x64.zip"));
+    }
+
+    #[test]
+    fn picks_accelerated_build_when_requested() {
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
+                platform: "linux",
+                arch: "x64",
+                variant: "vulkan",
+            },
+        );
+        assert_eq!(
+            got.as_deref(),
+            Some("llama-b1234-bin-ubuntu-vulkan-x64.zip")
+        );
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
