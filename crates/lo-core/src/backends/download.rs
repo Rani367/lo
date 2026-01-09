@@ -211,3 +211,26 @@ mod tests {
         let got = match_llama_asset(
             &names(),
             HostTarget {
+                platform: "win32",
+                arch: "x64",
+                variant: "cuda",
+            },
+        );
+        // shortest cuda build (the engine zip, not the longer cudart dependency)
+        assert_eq!(got.as_deref(), Some("llama-b1234-bin-win-cuda-x64.zip"));
+    }
+
+    #[test]
+    fn linux_baseline_avoids_accel_builds() {
+        let got = match_llama_asset(
+            &names(),
+            HostTarget {
+                platform: "linux",
+                arch: "x64",
+                variant: "cpu",
+            },
+        );
+        assert_eq!(got.as_deref(), Some("llama-b1234-bin-ubuntu-x64.zip"));
+    }
+
+    #[test]
