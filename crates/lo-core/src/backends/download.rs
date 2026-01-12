@@ -257,3 +257,14 @@ mod tests {
     #[test]
     fn gguf_url_from_slash_ref() {
         assert_eq!(
+            resolve_gguf_url("owner/repo/sub/model.gguf"),
+            "https://huggingface.co/owner/repo/resolve/main/sub/model.gguf?download=true"
+        );
+    }
+
+    #[test]
+    fn non_gguf_ref_is_empty() {
+        assert_eq!(resolve_gguf_url("mlx-community/Qwen3-8B-4bit"), "");
+        assert_eq!(resolve_gguf_url(""), "");
+    }
+}
