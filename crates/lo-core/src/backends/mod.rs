@@ -33,3 +33,26 @@ pub struct BackendEndpoint {
 pub fn resolve_backend_kind(settings: &LoSettings) -> BackendKind {
     let has_custom_url = env_nonempty("LO_LLM_URL");
     let is_apple_silicon = cfg!(all(target_os = "macos", target_arch = "aarch64"));
+    resolve_backend_kind_for(settings.backend, has_custom_url, is_apple_silicon)
+}
+
+/// Pure core of [`resolve_backend_kind`] — exposed for exhaustive testing across
+/// the env/platform matrix without mutating process env or faking the OS.
+pub fn resolve_backend_kind_for(
+    choice: BackendChoice,
+    has_custom_url: bool,
+    is_apple_silicon: bool,
+) -> BackendKind {
+    if has_custom_url || choice == BackendChoice::Custom {
+        return BackendKind::Custom;
+    }
+    match choice {
+        BackendChoice::Auto => {
+            if is_apple_silicon {
+                BackendKind::Mlx
+            } else {
+                BackendKind::Llama
+            }
+        }
+        BackendChoice::Mlx => BackendKind::Mlx,
+        BackendChoice::Llama => BackendKind::Llama,
