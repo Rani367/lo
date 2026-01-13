@@ -56,3 +56,26 @@ pub fn resolve_backend_kind_for(
         }
         BackendChoice::Mlx => BackendKind::Mlx,
         BackendChoice::Llama => BackendKind::Llama,
+        BackendChoice::Ollama => BackendKind::Ollama,
+        BackendChoice::Custom => BackendKind::Custom,
+    }
+}
+
+/// Resolve the endpoint for the active backend, honoring the same `LO_*` env
+/// overrides the TS accessors used.
+pub fn resolve_endpoint(settings: &LoSettings) -> BackendEndpoint {
+    let kind = resolve_backend_kind(settings);
+    match kind {
+        BackendKind::Mlx => BackendEndpoint {
+            kind,
+            base_url: format!("http://{HOST}:{}/v1", port("LO_BRAIN_PORT", MLX_PORT)),
+            model_id: env_or("LO_ENGINE_MODEL", &settings.model),
+            api_key: None,
+        },
+        BackendKind::Llama => BackendEndpoint {
+            kind,
+            base_url: format!("http://{HOST}:{}/v1", port("LO_LLAMA_PORT", LLAMA_PORT)),
+            model_id: env_or("LO_LLAMA_MODEL_ID", &settings.model),
+            api_key: None,
+        },
+        BackendKind::Ollama => {
