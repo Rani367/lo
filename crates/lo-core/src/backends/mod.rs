@@ -79,3 +79,26 @@ pub fn resolve_endpoint(settings: &LoSettings) -> BackendEndpoint {
             api_key: None,
         },
         BackendKind::Ollama => {
+            let base = normalize_base(&env_or("LO_OLLAMA_URL", OLLAMA_URL));
+            BackendEndpoint {
+                kind,
+                base_url: format!("{base}/v1"),
+                model_id: env_or("LO_OLLAMA_MODEL", &settings.model),
+                // Ollama ignores the key but the client wants one.
+                api_key: Some(env_or("LO_OLLAMA_KEY", "ollama")),
+            }
+        }
+        BackendKind::Custom => {
+            let url = std::env::var("LO_LLM_URL")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| settings.llm_url.trim().to_string());
+            let key = std::env::var("LO_LLM_KEY")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .or_else(|| {
+                    let k = settings.llm_key.trim();
+                    if k.is_empty() {
+                        None
