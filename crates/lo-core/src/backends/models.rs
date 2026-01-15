@@ -17,3 +17,26 @@ pub struct ModelTier {
 
 /// Capability ladder, largest first.
 pub const MODEL_TIERS: &[ModelTier] = &[
+    ModelTier {
+        label: "Qwen3-Coder-30B-A3B",
+        min_ram_gb: 32,
+        mlx: "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit-DWQ",
+        gguf:
+            "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf",
+    },
+    ModelTier {
+        label: "Qwen3-14B",
+        min_ram_gb: 24,
+        mlx: "mlx-community/Qwen3-14B-4bit",
+        gguf: "unsloth/Qwen3-14B-GGUF:Qwen3-14B-UD-Q4_K_XL.gguf",
+    },
+    ModelTier {
+        label: "Qwen3-8B",
+        min_ram_gb: 16,
+        mlx: "mlx-community/Qwen3-8B-4bit",
+        gguf: "unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf",
+    },
+    ModelTier {
+        label: "Qwen3-4B",
+        min_ram_gb: 8,
+        mlx: "mlx-community/Qwen3-4B-4bit",
