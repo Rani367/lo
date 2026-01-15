@@ -125,3 +125,26 @@ pub fn normalize_base(url: &str) -> String {
 fn env_nonempty(key: &str) -> bool {
     std::env::var(key)
         .map(|v| !v.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn env_or(key: &str, fallback: &str) -> String {
+    std::env::var(key)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn port(key: &str, default: u16) -> u16 {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.trim().parse::<u16>().ok())
+        .filter(|&p| p != 0)
+        .unwrap_or(default)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
