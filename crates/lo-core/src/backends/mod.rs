@@ -102,3 +102,26 @@ pub fn resolve_endpoint(settings: &LoSettings) -> BackendEndpoint {
                     let k = settings.llm_key.trim();
                     if k.is_empty() {
                         None
+                    } else {
+                        Some(k.to_string())
+                    }
+                });
+            BackendEndpoint {
+                kind,
+                base_url: normalize_base(&url),
+                model_id: env_or("LO_LLM_MODEL", &settings.model),
+                api_key: key,
+            }
+        }
+    }
+}
+
+/// Strip trailing slashes (the user supplies the full OpenAI base, e.g.
+/// `http://host:1234/v1`).
+pub fn normalize_base(url: &str) -> String {
+    url.trim().trim_end_matches('/').to_string()
+}
+
+fn env_nonempty(key: &str) -> bool {
+    std::env::var(key)
+        .map(|v| !v.trim().is_empty())
