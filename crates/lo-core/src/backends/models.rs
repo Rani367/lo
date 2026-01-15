@@ -40,3 +40,26 @@ pub const MODEL_TIERS: &[ModelTier] = &[
         label: "Qwen3-4B",
         min_ram_gb: 8,
         mlx: "mlx-community/Qwen3-4B-4bit",
+        gguf: "unsloth/Qwen3-4B-Instruct-2507-GGUF:Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+    },
+];
+
+/// Total system memory in GB. `LO_RAM_GB` overrides for testing; otherwise the
+/// caller passes the OS-reported value (the bin crate uses `sysinfo`).
+pub fn total_ram_gb(detected_bytes: u64) -> f64 {
+    if let Ok(v) = std::env::var("LO_RAM_GB") {
+        if let Ok(n) = v.trim().parse::<f64>() {
+            if n > 0.0 {
+                return n;
+            }
+        }
+    }
+    detected_bytes as f64 / 1e9
+}
+
+/// Recommend the largest tier that fits in roughly 80% of available RAM, falling
+/// back to the smallest tier on very low-memory machines.
+pub fn recommend_tier(ram_gb: f64) -> ModelTier {
+    let usable = ram_gb * 0.8;
+    MODEL_TIERS
+        .iter()
