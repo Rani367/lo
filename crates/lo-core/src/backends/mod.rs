@@ -148,3 +148,26 @@ fn port(key: &str, default: u16) -> u16 {
 mod tests {
     use super::*;
 
+    #[test]
+    fn auto_selects_mlx_on_apple_silicon_else_llama() {
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Auto, false, true),
+            BackendKind::Mlx
+        );
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Auto, false, false),
+            BackendKind::Llama
+        );
+    }
+
+    #[test]
+    fn custom_url_or_choice_forces_custom() {
+        // A custom URL in env overrides even an explicit non-custom choice.
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Mlx, true, true),
+            BackendKind::Custom
+        );
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Custom, false, false),
+            BackendKind::Custom
+        );
