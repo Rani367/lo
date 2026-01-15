@@ -171,3 +171,26 @@ mod tests {
             resolve_backend_kind_for(BackendChoice::Custom, false, false),
             BackendKind::Custom
         );
+    }
+
+    #[test]
+    fn explicit_choices_pass_through() {
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Ollama, false, true),
+            BackendKind::Ollama
+        );
+        assert_eq!(
+            resolve_backend_kind_for(BackendChoice::Llama, false, true),
+            BackendKind::Llama
+        );
+    }
+
+    #[test]
+    fn normalize_base_strips_trailing_slashes() {
+        assert_eq!(
+            normalize_base("http://host:1234/v1/"),
+            "http://host:1234/v1"
+        );
+        assert_eq!(
+            normalize_base("http://host:1234/v1///"),
+            "http://host:1234/v1"
