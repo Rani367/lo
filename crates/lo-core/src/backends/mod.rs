@@ -194,3 +194,7 @@ mod tests {
         assert_eq!(
             normalize_base("http://host:1234/v1///"),
             "http://host:1234/v1"
+        );
+        assert_eq!(normalize_base("  http://h/v1  "), "http://h/v1");
+    }
+}
