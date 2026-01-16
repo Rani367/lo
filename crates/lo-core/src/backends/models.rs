@@ -86,3 +86,26 @@ pub fn gguf_ref_for_model(model_id: &str) -> String {
     }
     tier_for_model(id)
         .map(|t| t.gguf.to_string())
+        .unwrap_or_default()
+}
+
+/// Map a model id to its local GGUF filename (the llama backend's `ggufFileFor`).
+pub fn gguf_file_for(model_id: &str) -> String {
+    let leaf = model_id
+        .split('/')
+        .rfind(|s| !s.is_empty())
+        .unwrap_or("model");
+    if leaf.ends_with(".gguf") {
+        leaf.to_string()
+    } else {
+        format!("{leaf}.gguf")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ram_ladder_uses_80_percent_headroom() {
+        // 32 GB * 0.8 = 25.6 → only the 24 GB tier fits, not the 32 GB one.
