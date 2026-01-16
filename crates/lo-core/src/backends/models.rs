@@ -109,3 +109,26 @@ mod tests {
     #[test]
     fn ram_ladder_uses_80_percent_headroom() {
         // 32 GB * 0.8 = 25.6 → only the 24 GB tier fits, not the 32 GB one.
+        assert_eq!(recommend_tier(32.0).label, "Qwen3-14B");
+        // 40 GB * 0.8 = 32 → the top tier fits exactly.
+        assert_eq!(recommend_tier(40.0).label, "Qwen3-Coder-30B-A3B");
+        // 20 GB * 0.8 = 16 → the 8 GB-min (16 GB) tier fits exactly.
+        assert_eq!(recommend_tier(20.0).label, "Qwen3-8B");
+        // 16 GB * 0.8 = 12.8 → only the 4B tier (8 GB min) fits, after headroom.
+        assert_eq!(recommend_tier(16.0).label, "Qwen3-4B");
+        // Tiny box → smallest tier (never None).
+        assert_eq!(recommend_tier(4.0).label, "Qwen3-4B");
+    }
+
+    #[test]
+    fn gguf_ref_resolution() {
+        // Already a GGUF ref → unchanged.
+        let r = "unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf";
+        assert_eq!(gguf_ref_for_model(r), r);
+        // MLX id → mapped to the tier's GGUF.
+        assert_eq!(
+            gguf_ref_for_model("mlx-community/Qwen3-8B-4bit"),
+            "unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf"
+        );
+        // Unknown → empty.
+        assert_eq!(gguf_ref_for_model("nobody/unknown"), "");
