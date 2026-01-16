@@ -63,3 +63,26 @@ pub fn recommend_tier(ram_gb: f64) -> ModelTier {
     let usable = ram_gb * 0.8;
     MODEL_TIERS
         .iter()
+        .copied()
+        .find(|t| (t.min_ram_gb as f64) <= usable)
+        .unwrap_or_else(|| *MODEL_TIERS.last().expect("non-empty ladder"))
+}
+
+/// Find the catalog tier a model id belongs to (by MLX id or GGUF ref), if any.
+pub fn tier_for_model(model_id: &str) -> Option<ModelTier> {
+    MODEL_TIERS
+        .iter()
+        .copied()
+        .find(|t| t.mlx == model_id || t.gguf == model_id)
+}
+
+/// Resolve a GGUF reference for a logical model id. If the id already looks like
+/// a GGUF ref it's returned as-is; a known MLX id maps to that tier's GGUF;
+/// otherwise an empty string (the caller errors clearly).
+pub fn gguf_ref_for_model(model_id: &str) -> String {
+    let id = model_id.trim();
+    if id.contains(".gguf") {
+        return id.to_string();
+    }
+    tier_for_model(id)
+        .map(|t| t.gguf.to_string())
