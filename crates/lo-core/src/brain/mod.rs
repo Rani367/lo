@@ -33,3 +33,26 @@ pub fn initial_convo(settings: &LoSettings, history: &[ChatMessage]) -> Vec<ReqM
             content: Some(m.content.clone()),
             tool_calls: None,
             tool_call_id: None,
+        });
+    }
+    convo
+}
+
+/// Build the `/chat/completions` request body (streaming, native tool-calling).
+pub fn build_request_body(
+    model: &str,
+    convo: &[ReqMessage],
+    temperature: f64,
+) -> serde_json::Value {
+    serde_json::json!({
+        "model": model,
+        "messages": convo,
+        "tools": tools::tool_schemas_json(),
+        "tool_choice": "auto",
+        "temperature": temperature,
+        "max_tokens": MAX_TOKENS,
+        "stream": true,
+    })
+}
+
+/// Append the assistant's tool-call turn followed by each tool result, mirroring
