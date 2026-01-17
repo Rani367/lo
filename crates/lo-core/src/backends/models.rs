@@ -132,3 +132,14 @@ mod tests {
         );
         // Unknown → empty.
         assert_eq!(gguf_ref_for_model("nobody/unknown"), "");
+    }
+
+    #[test]
+    fn gguf_filename_from_id() {
+        assert_eq!(
+            gguf_file_for("mlx-community/Qwen3-8B-4bit"),
+            "Qwen3-8B-4bit.gguf"
+        );
+        assert_eq!(gguf_file_for("owner/repo/weights.gguf"), "weights.gguf");
+    }
+}
