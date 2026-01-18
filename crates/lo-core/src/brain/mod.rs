@@ -125,3 +125,12 @@ mod tests {
                 name: "get_datetime".into(),
                 arguments: "{}".into(),
             },
+        }];
+        append_tool_round(&mut convo, "", calls, vec!["It is 3pm.".into()]);
+        assert_eq!(convo.len(), 3);
+        assert_eq!(convo[1].role, ReqRole::Assistant);
+        assert!(convo[1].content.is_none()); // pure tool-call turn
+        assert_eq!(convo[2].role, ReqRole::Tool);
+        assert_eq!(convo[2].tool_call_id.as_deref(), Some("call_0"));
+    }
+}
