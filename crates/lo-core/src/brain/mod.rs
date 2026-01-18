@@ -102,3 +102,26 @@ mod tests {
         assert_eq!(convo[2].role, ReqRole::Assistant);
     }
 
+    #[test]
+    fn request_body_has_streaming_and_tools() {
+        let s = LoSettings::default();
+        let convo = initial_convo(&s, &[]);
+        let body = build_request_body("my-model", &convo, 0.6);
+        assert_eq!(body["model"], "my-model");
+        assert_eq!(body["stream"], true);
+        assert_eq!(body["tool_choice"], "auto");
+        assert_eq!(body["max_tokens"], 1024);
+        assert!(body["tools"].as_array().unwrap().len() >= 20);
+    }
+
+    #[test]
+    fn tool_round_appends_assistant_then_results() {
+        use types::{FunctionCall, ToolCallKind};
+        let mut convo = vec![ReqMessage::user("what time is it")];
+        let calls = vec![ToolCall {
+            id: "call_0".into(),
+            kind: ToolCallKind::Function,
+            function: FunctionCall {
+                name: "get_datetime".into(),
+                arguments: "{}".into(),
+            },
