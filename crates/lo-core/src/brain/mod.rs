@@ -56,3 +56,26 @@ pub fn build_request_body(
 }
 
 /// Append the assistant's tool-call turn followed by each tool result, mirroring
+/// the loop body in `runBrainTurn`. `results` must be 1:1 with `calls`.
+pub fn append_tool_round(
+    convo: &mut Vec<ReqMessage>,
+    assistant_text: &str,
+    calls: Vec<ToolCall>,
+    results: Vec<String>,
+) {
+    let content = if assistant_text.is_empty() {
+        None
+    } else {
+        Some(assistant_text.to_string())
+    };
+    let ids: Vec<String> = calls.iter().map(|c| c.id.clone()).collect();
+    convo.push(ReqMessage::assistant_tool_calls(content, calls));
+    for (id, result) in ids.into_iter().zip(results) {
+        convo.push(ReqMessage::tool_result(id, result));
+    }
+}
+
+/// The spoken fallback when the model produced no text after all rounds.
+pub const EMPTY_REPLY_FALLBACK: &str = "My apologies, I wasn't able to formulate a response.";
+
+#[cfg(test)]
