@@ -12,3 +12,26 @@
 use super::types::{FunctionCall, ToolCall, ToolCallKind};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+
+/// One OpenAI streaming chunk (permissive: every field optional / defaulted so a
+/// keep-alive, a usage-only chunk, or an unknown field never breaks parsing).
+#[derive(Debug, Deserialize, Default)]
+pub struct SseEvent {
+    #[serde(default)]
+    pub choices: Vec<SseChoice>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct SseChoice {
+    #[serde(default)]
+    pub delta: SseDelta,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct SseDelta {
+    #[serde(default)]
+    pub content: Option<String>,
+    #[serde(default)]
+    pub tool_calls: Vec<DeltaToolCall>,
