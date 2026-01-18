@@ -79,3 +79,26 @@ pub fn append_tool_round(
 pub const EMPTY_REPLY_FALLBACK: &str = "My apologies, I wasn't able to formulate a response.";
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_convo_starts_with_system_prompt() {
+        let s = LoSettings::default();
+        let history = vec![
+            ChatMessage {
+                role: ChatRole::User,
+                content: "hi".into(),
+            },
+            ChatMessage {
+                role: ChatRole::Assistant,
+                content: "hello".into(),
+            },
+        ];
+        let convo = initial_convo(&s, &history);
+        assert_eq!(convo.len(), 3);
+        assert_eq!(convo[0].role, ReqRole::System);
+        assert_eq!(convo[1].role, ReqRole::User);
+        assert_eq!(convo[2].role, ReqRole::Assistant);
+    }
+
