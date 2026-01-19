@@ -104,3 +104,26 @@ impl StreamAccumulator {
     }
 
     /// Feed one parsed event. Returns the prose delta (if any) so the caller can
+    /// forward it to its `on_delta` callback — matching the TS `cb.onDelta`.
+    pub fn push_event(&mut self, ev: &SseEvent) -> Option<String> {
+        let delta = ev.choices.first().map(|c| &c.delta)?;
+        let mut emitted: Option<String> = None;
+        if let Some(content) = &delta.content {
+            if !content.is_empty() {
+                self.text.push_str(content);
+                emitted = Some(content.clone());
+            }
+        }
+        for tc in &delta.tool_calls {
+            let acc = self.calls.entry(tc.index).or_default();
+            if let Some(id) = &tc.id {
+                if !id.is_empty() {
+                    acc.id = id.clone();
+                }
+            }
+            if let Some(func) = &tc.function {
+                if let Some(name) = &func.name {
+                    if !name.is_empty() {
+                        acc.name = name.clone();
+                    }
+                }
