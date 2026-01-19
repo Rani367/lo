@@ -35,3 +35,26 @@ pub struct SseDelta {
     pub content: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<DeltaToolCall>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct DeltaToolCall {
+    #[serde(default)]
+    pub index: usize,
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub function: Option<DeltaFunction>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct DeltaFunction {
+    #[serde(default)]
+    pub name: Option<String>,
+    /// May be a JSON string OR a JSON object/value (llama-server `--jinja`).
+    #[serde(default)]
+    pub arguments: Option<serde_json::Value>,
+}
+
+/// The meaning of one SSE line.
+#[derive(Debug)]
