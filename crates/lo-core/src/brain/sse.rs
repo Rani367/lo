@@ -127,3 +127,26 @@ impl StreamAccumulator {
                         acc.name = name.clone();
                     }
                 }
+                if let Some(raw) = &func.arguments {
+                    // string delta → append verbatim; object/value → stringify
+                    // (coercion from brain.ts:149-152).
+                    match raw {
+                        serde_json::Value::String(s) => acc.args.push_str(s),
+                        other => acc.args.push_str(&other.to_string()),
+                    }
+                }
+            }
+        }
+        emitted
+    }
+
+    /// Convenience: parse a raw line and, if it's an event, fold it in. Returns
+    /// `(prose_delta, is_done)`.
+    pub fn push_line(&mut self, line: &str) -> (Option<String>, bool) {
+        match parse_line(line) {
+            Frame::Event(ev) => (self.push_event(&ev), false),
+            Frame::Done => (None, true),
+            Frame::Ignore => (None, false),
+        }
+    }
+
