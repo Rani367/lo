@@ -81,3 +81,26 @@ pub fn parse_line(line: &str) -> Frame {
         Ok(ev) => Frame::Event(ev),
         Err(_) => Frame::Ignore,
     }
+}
+
+#[derive(Default, Clone)]
+struct AccCall {
+    id: String,
+    name: String,
+    args: String,
+}
+
+/// Accumulates a single streamed completion: appends prose deltas and merges
+/// `tool_calls` by index, exactly like `streamCompletion`.
+#[derive(Default)]
+pub struct StreamAccumulator {
+    text: String,
+    calls: BTreeMap<usize, AccCall>,
+}
+
+impl StreamAccumulator {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feed one parsed event. Returns the prose delta (if any) so the caller can
