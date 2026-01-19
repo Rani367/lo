@@ -58,3 +58,26 @@ pub struct DeltaFunction {
 
 /// The meaning of one SSE line.
 #[derive(Debug)]
+pub enum Frame {
+    Event(SseEvent),
+    Done,
+    /// Not a `data:` line, a keep-alive, or an unparseable payload — ignored.
+    Ignore,
+}
+
+/// Parse a single already-line-split SSE line, mirroring `readSse`'s per-line
+/// logic: only `data:` lines matter, `[DONE]` terminates, parse failures are
+/// silently ignored.
+pub fn parse_line(line: &str) -> Frame {
+    let line = line.trim();
+    let Some(payload) = line.strip_prefix("data:") else {
+        return Frame::Ignore;
+    };
+    let payload = payload.trim();
+    if payload == "[DONE]" {
+        return Frame::Done;
+    }
+    match serde_json::from_str::<SseEvent>(payload) {
+        Ok(ev) => Frame::Event(ev),
+        Err(_) => Frame::Ignore,
+    }
