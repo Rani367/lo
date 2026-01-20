@@ -150,3 +150,26 @@ impl StreamAccumulator {
         }
     }
 
+    /// The accumulated prose so far.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// Finalize into `(prose, tool_calls)`. Calls with no name are dropped; a
+    /// missing id falls back to `call_{i}`; empty args become `{}` — all matching
+    /// the TS reconstruction.
+    pub fn finish(self) -> (String, Vec<ToolCall>) {
+        let tool_calls = self
+            .calls
+            .into_values()
+            .filter(|c| !c.name.is_empty())
+            .enumerate()
+            .map(|(i, c)| ToolCall {
+                id: if c.id.is_empty() {
+                    format!("call_{i}")
+                } else {
+                    c.id
+                },
+                kind: ToolCallKind::Function,
+                function: FunctionCall {
+                    name: c.name,
