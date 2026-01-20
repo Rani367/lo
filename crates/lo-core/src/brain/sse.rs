@@ -173,3 +173,26 @@ impl StreamAccumulator {
                 kind: ToolCallKind::Function,
                 function: FunctionCall {
                     name: c.name,
+                    arguments: if c.args.is_empty() {
+                        "{}".to_string()
+                    } else {
+                        c.args
+                    },
+                },
+            })
+            .collect();
+        (self.text, tool_calls)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn feed(lines: &[&str]) -> (String, Vec<ToolCall>) {
+        let mut acc = StreamAccumulator::new();
+        for l in lines {
+            acc.push_line(l);
+        }
+        acc.finish()
+    }
