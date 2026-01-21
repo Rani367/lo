@@ -265,3 +265,11 @@ mod tests {
     #[test]
     fn missing_id_falls_back_to_call_index_and_empty_args_become_braces() {
         let (_t, calls) = feed(&[
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"get_datetime"}}]}}]}"#,
+            "data: [DONE]",
+        ]);
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call_0");
+        assert_eq!(calls[0].function.arguments, "{}");
+    }
+}
