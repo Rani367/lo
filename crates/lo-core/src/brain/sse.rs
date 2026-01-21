@@ -242,3 +242,26 @@ mod tests {
         let (_text, calls) = feed(&[
             r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"set_timer","arguments":{"seconds":300}}}]}}]}"#,
             "data: [DONE]",
+        ]);
+        assert_eq!(calls.len(), 1);
+        // Parses back to valid JSON with the right value.
+        let v: serde_json::Value = serde_json::from_str(&calls[0].function.arguments).unwrap();
+        assert_eq!(v["seconds"], 300);
+    }
+
+    #[test]
+    fn multiple_parallel_tool_calls_merge_by_index() {
+        let (_t, calls) = feed(&[
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","function":{"name":"get_datetime","arguments":"{}"}}]}}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"b","function":{"name":"system_info","arguments":"{\"kind\":\"cpu\"}"}}]}}]}"#,
+            "data: [DONE]",
+        ]);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[0].function.name, "get_datetime");
+        assert_eq!(calls[1].function.name, "system_info");
+        assert_eq!(calls[1].id, "b");
+    }
+
+    #[test]
+    fn missing_id_falls_back_to_call_index_and_empty_args_become_braces() {
+        let (_t, calls) = feed(&[
