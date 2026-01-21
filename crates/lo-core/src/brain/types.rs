@@ -82,3 +82,14 @@ impl ReqMessage {
             tool_calls: Some(calls),
             tool_call_id: None,
         }
+    }
+    /// A `tool` result message referencing the originating call.
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: ReqRole::Tool,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: Some(tool_call_id.into()),
+        }
+    }
+}
