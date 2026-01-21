@@ -36,3 +36,26 @@ pub struct FunctionCall {
     pub arguments: String,
 }
 
+/// One message in the request `messages[]` array.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReqMessage {
+    pub role: ReqRole,
+    /// `null` is valid for an assistant turn that is *only* tool calls.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+}
+
+impl ReqMessage {
+    pub fn system(content: impl Into<String>) -> Self {
+        Self {
+            role: ReqRole::System,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+    pub fn user(content: impl Into<String>) -> Self {
