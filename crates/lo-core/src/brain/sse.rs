@@ -219,3 +219,26 @@ mod tests {
         ]);
         assert_eq!(text, "ok");
     }
+
+    #[test]
+    fn tool_call_arguments_streamed_as_string_fragments() {
+        // The classic OpenAI streaming shape: name once, args across chunks.
+        let (text, calls) = feed(&[
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_abc","function":{"name":"web_search"}}]}}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"query\":\"the "}}]}}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"weather\"}"}}]}}]}"#,
+            "data: [DONE]",
+        ]);
+        assert!(text.is_empty());
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].id, "call_abc");
+        assert_eq!(calls[0].function.name, "web_search");
+        assert_eq!(calls[0].function.arguments, r#"{"query":"the weather"}"#);
+    }
+
+    #[test]
+    fn arguments_as_object_in_one_delta_are_coerced_to_a_string() {
+        // llama-server --jinja sometimes emits `arguments` as an object.
+        let (_text, calls) = feed(&[
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"set_timer","arguments":{"seconds":300}}}]}}]}"#,
+            "data: [DONE]",
