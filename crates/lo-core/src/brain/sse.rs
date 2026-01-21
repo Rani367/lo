@@ -196,3 +196,26 @@ mod tests {
         }
         acc.finish()
     }
+
+    #[test]
+    fn plain_prose_stream() {
+        let (text, calls) = feed(&[
+            r#"data: {"choices":[{"delta":{"content":"Hello"}}]}"#,
+            r#"data: {"choices":[{"delta":{"content":", world"}}]}"#,
+            "data: [DONE]",
+        ]);
+        assert_eq!(text, "Hello, world");
+        assert!(calls.is_empty());
+    }
+
+    #[test]
+    fn keepalives_and_garbage_are_ignored() {
+        let (text, _calls) = feed(&[
+            ": keep-alive comment",
+            "",
+            r#"data: {"choices":[{"delta":{"content":"ok"}}]}"#,
+            "data: {not json}",
+            "event: ping",
+        ]);
+        assert_eq!(text, "ok");
+    }
