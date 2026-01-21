@@ -59,3 +59,26 @@ impl ReqMessage {
         }
     }
     pub fn user(content: impl Into<String>) -> Self {
+        Self {
+            role: ReqRole::User,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: ReqRole::Assistant,
+            content: Some(content.into()),
+            tool_calls: None,
+            tool_call_id: None,
+        }
+    }
+    /// The assistant turn that carries `tool_calls` (content may be empty/None).
+    pub fn assistant_tool_calls(content: Option<String>, calls: Vec<ToolCall>) -> Self {
+        Self {
+            role: ReqRole::Assistant,
+            content,
+            tool_calls: Some(calls),
+            tool_call_id: None,
+        }
