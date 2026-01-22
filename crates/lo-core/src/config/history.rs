@@ -33,3 +33,26 @@ pub fn load_from<P: AsRef<Path>>(path: P) -> Vec<ChatMessage> {
     }
 }
 
+/// Persist the last `MAX` messages when persistence is on; otherwise a no-op.
+pub fn save(persist: bool, messages: &[ChatMessage]) -> std::io::Result<()> {
+    if !persist {
+        return Ok(());
+    }
+    save_to(paths::history_file(), messages)
+}
+
+pub fn save_to<P: AsRef<Path>>(path: P, messages: &[ChatMessage]) -> std::io::Result<()> {
+    let path = path.as_ref();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let tail = if messages.len() > MAX {
+        &messages[messages.len() - MAX..]
+    } else {
+        messages
+    };
+    let json = serde_json::to_string(tail).expect("messages serialize");
+    fs::write(path, json)
+}
+
+#[cfg(test)]
