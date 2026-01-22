@@ -79,3 +79,22 @@ mod tests {
     #[test]
     fn round_trips_and_caps_at_max() {
         let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.json");
+        let many: Vec<ChatMessage> = (0..40)
+            .map(|i| {
+                msg(
+                    if i % 2 == 0 {
+                        ChatRole::User
+                    } else {
+                        ChatRole::Assistant
+                    },
+                    &format!("m{i}"),
+                )
+            })
+            .collect();
+        save_to(&path, &many).unwrap();
+        let back = load_from(&path);
+        assert_eq!(back.len(), MAX);
+        assert_eq!(back.last().unwrap().content, "m39");
+    }
+}
