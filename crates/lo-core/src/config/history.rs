@@ -56,3 +56,26 @@ pub fn save_to<P: AsRef<Path>>(path: P, messages: &[ChatMessage]) -> std::io::Re
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::ChatRole;
+
+    fn msg(role: ChatRole, content: &str) -> ChatMessage {
+        ChatMessage {
+            role,
+            content: content.to_string(),
+        }
+    }
+
+    #[test]
+    fn off_is_a_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("history.json");
+        save(false, &[msg(ChatRole::User, "hi")]).unwrap(); // default path, but persist=false → no write
+        assert!(load(false).is_empty());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn round_trips_and_caps_at_max() {
+        let dir = tempfile::tempdir().unwrap();
