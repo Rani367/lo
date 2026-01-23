@@ -71,3 +71,26 @@ impl Default for LoSettings {
             allowed_fs_roots: Vec::new(),
             persist_history: false,
         }
+    }
+}
+
+impl LoSettings {
+    /// Load settings, merging the on-disk `settings.json` over the defaults. Any
+    /// error (missing file, bad JSON) yields the defaults — matching the TS
+    /// behavior where a corrupt file silently falls back.
+    pub fn load() -> Self {
+        Self::load_from(paths::settings_file())
+    }
+
+    /// Load from an explicit path (used by tests).
+    pub fn load_from<P: AsRef<Path>>(path: P) -> Self {
+        match fs::read_to_string(path.as_ref()) {
+            Ok(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+            Err(_) => Self::default(),
+        }
+    }
+
+    /// Persist to the default settings path (pretty JSON, like the TS writer).
+    pub fn save(&self) -> std::io::Result<()> {
+        self.save_to(paths::settings_file())
+    }
