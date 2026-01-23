@@ -94,3 +94,26 @@ impl LoSettings {
     pub fn save(&self) -> std::io::Result<()> {
         self.save_to(paths::settings_file())
     }
+
+    pub fn save_to<P: AsRef<Path>>(&self, path: P) -> std::io::Result<()> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(self).expect("LoSettings is serializable");
+        fs::write(path, json)
+    }
+}
+
+/// The optional Picovoice access key for the on-device wake word.
+pub fn porcupine_key() -> Option<String> {
+    std::env::var("PICOVOICE_ACCESS_KEY")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
