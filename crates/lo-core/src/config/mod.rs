@@ -25,3 +25,26 @@ pub struct LoSettings {
     pub model: String,
     /// Speech-to-text model id/path.
     pub asr_model: String,
+    /// kokoro-js model id.
+    pub tts_model: String,
+    /// Kokoro voice, e.g. `af_heart` (warm American female).
+    pub voice: String,
+    pub activation_mode: ActivationMode,
+    /// How Lo addresses the user.
+    pub user_name: String,
+    pub voice_enabled: bool,
+    pub temperature: f64,
+    /// Kokoro speed multiplier; >1 speaks faster, pitch unchanged.
+    pub speech_rate: f64,
+    /// `auto` (MLX on Apple Silicon, llama.cpp elsewhere) or an explicit engine.
+    pub backend: BackendChoice,
+    /// Custom OpenAI-compatible base URL (used when `backend == custom`).
+    pub llm_url: String,
+    /// Optional bearer key for the custom endpoint.
+    pub llm_key: String,
+    /// When true, dangerous tools run with no confirmation gate.
+    pub power_user_mode: bool,
+    /// Directories the filesystem tools may touch (`[]` => home dir).
+    pub allowed_fs_roots: Vec<String>,
+    /// Persist the rolling conversation transcript across restarts.
+    pub persist_history: bool,
