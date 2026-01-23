@@ -48,3 +48,26 @@ pub struct LoSettings {
     pub allowed_fs_roots: Vec<String>,
     /// Persist the rolling conversation transcript across restarts.
     pub persist_history: bool,
+}
+
+impl Default for LoSettings {
+    fn default() -> Self {
+        Self {
+            // A Qwen3-Coder MoE: ~30B total but ~3B active params/token. Override
+            // with LO_ENGINE_MODEL.
+            model: "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit-DWQ".to_string(),
+            asr_model: "mlx-community/parakeet-tdt-0.6b-v3".to_string(),
+            tts_model: "onnx-community/Kokoro-82M-v1.0-ONNX".to_string(),
+            voice: "af_heart".to_string(),
+            activation_mode: ActivationMode::Ptt,
+            user_name: "there".to_string(),
+            voice_enabled: true,
+            temperature: 0.6,
+            speech_rate: 1.15,
+            backend: BackendChoice::Auto,
+            llm_url: String::new(),
+            llm_key: String::new(),
+            power_user_mode: false,
+            allowed_fs_roots: Vec::new(),
+            persist_history: false,
+        }
