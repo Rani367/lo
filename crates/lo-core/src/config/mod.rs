@@ -163,3 +163,11 @@ mod tests {
         assert_eq!(back, s);
     }
 
+    #[test]
+    fn corrupt_file_falls_back_to_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, "{ not valid json").unwrap();
+        assert_eq!(LoSettings::load_from(&path), LoSettings::default());
+    }
+}
