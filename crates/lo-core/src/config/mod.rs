@@ -140,3 +140,26 @@ mod tests {
         assert_eq!(s.user_name, "there");
         assert_eq!(s.backend, BackendChoice::Auto);
     }
+
+    #[test]
+    fn camel_case_round_trips_on_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let s = LoSettings {
+            user_name: "Rani".to_string(),
+            persist_history: true,
+            ..Default::default()
+        };
+        s.save_to(&path).unwrap();
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            raw.contains("\"userName\""),
+            "expected camelCase keys: {raw}"
+        );
+        assert!(raw.contains("\"persistHistory\""));
+
+        let back = LoSettings::load_from(&path);
+        assert_eq!(back, s);
+    }
+
