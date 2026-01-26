@@ -117,3 +117,26 @@ pub fn porcupine_key() -> Option<String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn defaults_match_the_electron_app() {
+        let s = LoSettings::default();
+        assert_eq!(s.voice, "af_heart");
+        assert_eq!(s.activation_mode, ActivationMode::Ptt);
+        assert_eq!(s.backend, BackendChoice::Auto);
+        assert!(!s.power_user_mode);
+        assert!(s.allowed_fs_roots.is_empty());
+        assert_eq!(s.temperature, 0.6);
+        assert_eq!(s.speech_rate, 1.15);
+    }
+
+    #[test]
+    fn partial_json_merges_over_defaults() {
+        // Only two keys present; everything else must fall back to defaults.
+        let json = r#"{ "voice": "am_michael", "powerUserMode": true }"#;
+        let s: LoSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(s.voice, "am_michael");
+        assert!(s.power_user_mode);
+        // untouched keys keep defaults
+        assert_eq!(s.user_name, "there");
+        assert_eq!(s.backend, BackendChoice::Auto);
+    }
