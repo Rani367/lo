@@ -29,3 +29,25 @@ pub fn cache_dir() -> PathBuf {
         .map(|d| d.cache_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from(".lo/cache"))
 }
+
+/// Per-OS user home directory (the default filesystem sandbox root).
+pub fn home_dir() -> PathBuf {
+    BaseDirs::new()
+        .map(|d| d.home_dir().to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Path to the persisted settings file.
+pub fn settings_file() -> PathBuf {
+    config_dir().join("settings.json")
+}
+
+/// Path to the opt-in conversation history file.
+pub fn history_file() -> PathBuf {
+    config_dir().join("history.json")
+}
+
+/// Path to the tool-invocation audit log.
+pub fn audit_file() -> PathBuf {
+    config_dir().join("lo-audit.log")
+}
