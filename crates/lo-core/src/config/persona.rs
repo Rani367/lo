@@ -45,3 +45,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn includes_user_name_and_tool_names() {
+        let s = LoSettings {
+            user_name: "Rani".to_string(),
+            ..Default::default()
+        };
+        let prompt = build_system_prompt(&s);
+        assert!(prompt.contains("Address the user as \"Rani\""));
+        assert!(prompt.contains("web_search"));
+        assert!(prompt.contains("run_command"));
+    }
+
+    #[test]
+    fn blank_name_falls_back_to_there() {
+        let s = LoSettings {
+            user_name: "   ".to_string(),
+            ..Default::default()
+        };
+        assert!(build_system_prompt(&s).contains("Address the user as \"there\""));
+    }
+}
