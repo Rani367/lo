@@ -99,3 +99,26 @@ pub fn chunk_for_tts(input: &str, max_chars: usize) -> Vec<String> {
 /// Convenience wrapper using the default `TTS_MAX_CHARS`.
 pub fn chunk_for_tts_default(input: &str) -> Vec<String> {
     chunk_for_tts(input, TTS_MAX_CHARS)
+}
+
+/// Mirror the JS regex `/[^.!?]+[.!?]+(?:["')\]]+)?|\S[^.!?]*$/g`: a run up to and
+/// including terminal punctuation (plus trailing closing quotes/brackets), or a
+/// final non-terminated fragment.
+fn split_sentences(text: &str) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out: Vec<String> = Vec::new();
+    let mut start = 0;
+    let mut i = 0;
+    let n = chars.len();
+    let is_term = |c: char| c == '.' || c == '!' || c == '?';
+    let is_closer = |c: char| c == '"' || c == '\'' || c == ')' || c == ']';
+
+    while i < n {
+        if is_term(chars[i]) {
+            // consume the run of terminal punctuation
+            while i < n && is_term(chars[i]) {
+                i += 1;
+            }
+            // optional trailing closers
+            while i < n && is_closer(chars[i]) {
+                i += 1;
