@@ -53,3 +53,26 @@ fn find_directive_close(chars: &[char], open: usize) -> Option<usize> {
 pub fn chunk_for_tts(input: &str, max_chars: usize) -> Vec<String> {
     let text = collapse_ws(input);
     if text.is_empty() {
+        return Vec::new();
+    }
+
+    let sentences = split_sentences(&text);
+
+    let mut chunks: Vec<String> = Vec::new();
+    let mut buf = String::new();
+
+    let flush = |buf: &mut String, chunks: &mut Vec<String>| {
+        let t = buf.trim();
+        if !t.is_empty() {
+            chunks.push(t.to_string());
+        }
+        buf.clear();
+    };
+
+    for sentence in sentences {
+        let s = sentence.trim();
+        if s.is_empty() {
+            continue;
+        }
+        if char_len(s) > max_chars {
+            flush(&mut buf, &mut chunks);
