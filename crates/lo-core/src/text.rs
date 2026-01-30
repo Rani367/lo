@@ -122,3 +122,26 @@ fn split_sentences(text: &str) -> Vec<String> {
             // optional trailing closers
             while i < n && is_closer(chars[i]) {
                 i += 1;
+            }
+            let seg: String = chars[start..i].iter().collect();
+            if !seg.trim().is_empty() {
+                out.push(seg);
+            }
+            // skip a single separating space (the regex's `[^.!?]+` re-consumes leading ws)
+            start = i;
+        } else {
+            i += 1;
+        }
+    }
+    if start < n {
+        let seg: String = chars[start..n].iter().collect();
+        if !seg.trim().is_empty() {
+            out.push(seg);
+        }
+    }
+    if out.is_empty() {
+        out.push(text.to_string());
+    }
+    out
+}
+
