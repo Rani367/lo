@@ -76,3 +76,26 @@ pub fn chunk_for_tts(input: &str, max_chars: usize) -> Vec<String> {
         }
         if char_len(s) > max_chars {
             flush(&mut buf, &mut chunks);
+            chunks.extend(hard_split(s, max_chars));
+            continue;
+        }
+        // (buf + ' ' + s) length, trimmed.
+        let candidate = if buf.is_empty() {
+            s.to_string()
+        } else {
+            format!("{buf} {s}")
+        };
+        if char_len(candidate.trim()) > max_chars {
+            flush(&mut buf, &mut chunks);
+            buf = s.to_string();
+        } else {
+            buf = candidate;
+        }
+    }
+    flush(&mut buf, &mut chunks);
+    chunks
+}
+
+/// Convenience wrapper using the default `TTS_MAX_CHARS`.
+pub fn chunk_for_tts_default(input: &str) -> Vec<String> {
+    chunk_for_tts(input, TTS_MAX_CHARS)
