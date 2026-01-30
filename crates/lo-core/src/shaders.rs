@@ -24,3 +24,17 @@ mod tests {
         validator
             .validate(&module)
             .expect("orb.wgsl should pass naga validation");
+    }
+
+    #[test]
+    fn declares_both_entry_points() {
+        let module = naga::front::wgsl::parse_str(ORB_WGSL).unwrap();
+        let stages: Vec<_> = module
+            .entry_points
+            .iter()
+            .map(|e| e.name.as_str())
+            .collect();
+        assert!(stages.contains(&"vs_main"), "missing vertex entry point");
+        assert!(stages.contains(&"fs_main"), "missing fragment entry point");
+    }
+}
