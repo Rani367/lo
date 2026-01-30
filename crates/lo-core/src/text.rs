@@ -145,3 +145,26 @@ fn split_sentences(text: &str) -> Vec<String> {
     out
 }
 
+/// Split an over-long fragment on clause/word/char boundaries.
+fn hard_split(s: &str, max_chars: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut rest: Vec<char> = s.chars().collect();
+    while rest.len() > max_chars {
+        let mut cut = last_boundary_before(&rest, max_chars);
+        if cut == 0 {
+            cut = max_chars; // no boundary found — hard cut
+        }
+        let head: String = rest[..cut].iter().collect();
+        out.push(head.trim().to_string());
+        rest = rest[cut..].to_vec();
+        // trim leading whitespace of the remainder
+        while rest.first().is_some_and(|c| c.is_whitespace()) {
+            rest.remove(0);
+        }
+    }
+    if !rest.is_empty() {
+        let tail: String = rest.iter().collect();
+        let t = tail.trim();
+        if !t.is_empty() {
+            out.push(t.to_string());
+        }
