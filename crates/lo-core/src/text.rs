@@ -30,3 +30,26 @@ pub fn strip_directives(text: &str) -> String {
 /// lies within 1..=40 inner chars and contains no `[`/`]` in between.
 fn find_directive_close(chars: &[char], open: usize) -> Option<usize> {
     let mut j = open + 1;
+    let mut inner = 0;
+    while j < chars.len() && inner <= 40 {
+        match chars[j] {
+            ']' => {
+                return if inner >= 1 { Some(j) } else { None };
+            }
+            '[' => return None,
+            _ => {
+                inner += 1;
+                j += 1;
+            }
+        }
+    }
+    None
+}
+
+/// Split a reply into ≤`max_chars` chunks, preferring sentence boundaries, then
+/// clause boundaries, then word boundaries, then a hard cut as a last resort.
+/// Bracketed directions are kept inline (they count toward the budget but steer
+/// voice, matching the TS behavior).
+pub fn chunk_for_tts(input: &str, max_chars: usize) -> Vec<String> {
+    let text = collapse_ws(input);
+    if text.is_empty() {
