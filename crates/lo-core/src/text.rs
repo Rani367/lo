@@ -168,3 +168,26 @@ fn hard_split(s: &str, max_chars: usize) -> Vec<String> {
         if !t.is_empty() {
             out.push(t.to_string());
         }
+    }
+    out
+}
+
+/// Index (in chars) just after the last clause/whitespace boundary within
+/// `limit`, or 0 if none past the halfway point — mirrors `lastBoundaryBefore`.
+fn last_boundary_before(s: &[char], limit: usize) -> usize {
+    let window = &s[..limit.min(s.len())];
+    // Prefer clause punctuation followed by whitespace, then plain whitespace.
+    let is_clause = |c: char| matches!(c, ',' | ';' | ':' | '—' | '-');
+    // pass 1: clause punctuation + whitespace
+    {
+        let mut idx = 0usize;
+        for w in 0..window.len().saturating_sub(1) {
+            if is_clause(window[w]) && window[w + 1].is_whitespace() {
+                idx = w + 2; // index after the punctuation + space
+            }
+        }
+        if idx as f64 > limit as f64 * 0.5 {
+            return idx;
+        }
+    }
+    // pass 2: any whitespace
