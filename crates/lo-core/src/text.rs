@@ -191,3 +191,26 @@ fn last_boundary_before(s: &[char], limit: usize) -> usize {
         }
     }
     // pass 2: any whitespace
+    {
+        let mut idx = 0usize;
+        for (w, &c) in window.iter().enumerate() {
+            if c.is_whitespace() {
+                idx = w + 1;
+            }
+        }
+        if idx as f64 > limit as f64 * 0.5 {
+            return idx;
+        }
+    }
+    0
+}
+
+/// Collapse all runs of ASCII/Unicode whitespace to single spaces and trim.
+fn collapse_ws(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn char_len(s: &str) -> usize {
+    s.chars().count()
+}
+
