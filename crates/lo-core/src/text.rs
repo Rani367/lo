@@ -214,3 +214,26 @@ fn char_len(s: &str) -> usize {
     s.chars().count()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_input_yields_no_chunks() {
+        assert!(chunk_for_tts_default("").is_empty());
+        assert!(chunk_for_tts_default("   \n\t ").is_empty());
+    }
+
+    #[test]
+    fn short_reply_is_a_single_chunk() {
+        let chunks = chunk_for_tts_default("It is 3pm.");
+        assert_eq!(chunks, vec!["It is 3pm.".to_string()]);
+    }
+
+    #[test]
+    fn splits_on_sentence_boundaries_under_budget() {
+        let s = "First sentence here. Second one follows! Third?";
+        let chunks = chunk_for_tts(s, 30);
+        // Each chunk must respect the budget and preserve terminal punctuation.
+        for c in &chunks {
+            assert!(c.chars().count() <= 30, "chunk too long: {c:?}");
