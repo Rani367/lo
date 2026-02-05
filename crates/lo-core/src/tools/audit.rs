@@ -27,3 +27,26 @@ struct AuditLine<'a> {
     decision: Decision,
     detail: String,
 }
+
+/// Append one audit line to the given path. Best-effort — never panics, never
+/// propagates an error.
+pub fn audit_log_to(
+    path: &Path,
+    tool: &str,
+    args: &serde_json::Value,
+    decision: Decision,
+    detail: &str,
+) {
+    let line = AuditLine {
+        t: now_millis(),
+        tool,
+        args: truncate_args(args),
+        decision,
+        detail: detail.chars().take(200).collect(),
+    };
+    let Ok(json) = serde_json::to_string(&line) else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
