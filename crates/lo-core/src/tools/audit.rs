@@ -50,3 +50,26 @@ pub fn audit_log_to(
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(f, "{json}");
+    }
+}
+
+/// Append to the default audit-log location.
+pub fn audit_log(tool: &str, args: &serde_json::Value, decision: Decision, detail: &str) {
+    audit_log_to(
+        &crate::config::paths::audit_file(),
+        tool,
+        args,
+        decision,
+        detail,
+    );
+}
+
+/// Truncate an args blob to ~500 chars of JSON, matching the TS `truncate`.
+fn truncate_args(args: &serde_json::Value) -> serde_json::Value {
+    let s = args.to_string();
+    if s.len() > 500 {
+        serde_json::Value::String(format!("{}…", &s[..500]))
+    } else {
+        args.clone()
