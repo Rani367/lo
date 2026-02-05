@@ -260,3 +260,20 @@ mod tests {
         assert_eq!(
             strip_directives("[dry] Hello [warmly] there"),
             "Hello there"
+        );
+        // An unclosed / over-long bracket is left as-is.
+        assert_eq!(strip_directives("a [b"), "a [b");
+        let long = format!("x [{}] y", "z".repeat(50));
+        assert_eq!(strip_directives(&long), long.replace("  ", " "));
+    }
+
+    #[test]
+    fn no_chunk_exceeds_default_budget() {
+        let para = "Lo is a fast, local AI agent that runs entirely on your own machine, \
+            with no cloud, no API keys, and no data leaving your computer at all, which is \
+            rather the whole point of the thing if you stop and think about it for a moment.";
+        for c in chunk_for_tts_default(para) {
+            assert!(c.chars().count() <= TTS_MAX_CHARS, "too long: {c:?}");
+        }
+    }
+}
