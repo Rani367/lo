@@ -237,3 +237,26 @@ mod tests {
         // Each chunk must respect the budget and preserve terminal punctuation.
         for c in &chunks {
             assert!(c.chars().count() <= 30, "chunk too long: {c:?}");
+        }
+        assert_eq!(chunks.join(" "), s);
+    }
+
+    #[test]
+    fn over_long_sentence_is_hard_split_within_budget() {
+        let long = "word ".repeat(80); // 400 chars, no sentence punctuation
+        let chunks = chunk_for_tts(long.trim(), 50);
+        assert!(chunks.len() > 1);
+        for c in &chunks {
+            assert!(
+                c.chars().count() <= 50,
+                "chunk too long: {} ({c:?})",
+                c.len()
+            );
+        }
+    }
+
+    #[test]
+    fn strip_directives_removes_bracketed_spans() {
+        assert_eq!(
+            strip_directives("[dry] Hello [warmly] there"),
+            "Hello there"
