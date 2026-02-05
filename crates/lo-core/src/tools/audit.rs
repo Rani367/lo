@@ -73,3 +73,26 @@ fn truncate_args(args: &serde_json::Value) -> serde_json::Value {
         serde_json::Value::String(format!("{}…", &s[..500]))
     } else {
         args.clone()
+    }
+}
+
+fn now_millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn appends_one_json_line_per_call() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lo-audit.log");
+        let args = serde_json::json!({ "command": "rm", "args": ["-rf", "/tmp/x"] });
+        audit_log_to(&path, "run_command", &args, Decision::Denied, "");
+        audit_log_to(&path, "run_command", &args, Decision::Allowed, "ok");
+
+        let body = std::fs::read_to_string(&path).unwrap();
