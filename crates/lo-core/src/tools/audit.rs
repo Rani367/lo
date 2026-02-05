@@ -96,3 +96,23 @@ mod tests {
         audit_log_to(&path, "run_command", &args, Decision::Allowed, "ok");
 
         let body = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = body.lines().collect();
+        assert_eq!(lines.len(), 2);
+        let v: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(v["tool"], "run_command");
+        assert_eq!(v["decision"], "denied");
+        assert!(v["t"].is_number());
+    }
+
+    #[test]
+    fn truncates_large_args() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lo-audit.log");
+        let big = serde_json::json!({ "content": "x".repeat(2000) });
+        audit_log_to(&path, "write_file", &big, Decision::Allowed, "");
+        let body = std::fs::read_to_string(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_str(body.lines().next().unwrap()).unwrap();
+        // args got coerced to a truncated string ending in the ellipsis.
+        assert!(v["args"].as_str().unwrap().ends_with('…'));
+    }
+}
