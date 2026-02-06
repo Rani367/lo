@@ -116,3 +116,26 @@ fn str_param(desc: &str) -> serde_json::Value {
 fn obj(properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
     serde_json::json!({ "type": "object", "properties": properties, "required": required })
 }
+
+fn tool(
+    tier: Tier,
+    name: &'static str,
+    description: &'static str,
+    parameters: serde_json::Value,
+) -> ToolSchema {
+    ToolSchema {
+        tier,
+        name,
+        description,
+        parameters,
+    }
+}
+
+fn build_registry() -> Vec<ToolSchema> {
+    use Tier::*;
+    vec![
+        // ---- information / web ----
+        tool(Safe, "web_search", "Search the live web for current, factual, or time-sensitive information (news, weather, prices, scores, events, lookups). Use whenever you are not certain of the answer from memory.",
+            obj(serde_json::json!({ "query": str_param("A focused natural-language search query.") }), &["query"])),
+        tool(Safe, "fetch_url", "Fetch a web page (or API URL) and return its readable text so you can answer about its contents. Public http/https only.",
+            obj(serde_json::json!({ "url": str_param("The absolute http(s) URL to fetch.") }), &["url"])),
