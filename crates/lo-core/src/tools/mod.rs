@@ -70,3 +70,26 @@ pub fn tool_schemas_json() -> serde_json::Value {
                     "type": "function",
                     "function": {
                         "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters,
+                    }
+                })
+            })
+            .collect(),
+    )
+}
+
+/// Compact comma-separated tool-name list for the persona prompt.
+pub fn tool_names() -> String {
+    REGISTRY
+        .iter()
+        .map(|t| t.name)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The tier for a tool name (unknown names are treated as `Safe`, matching the TS
+/// `?? 'safe'`).
+pub fn tier_for(name: &str) -> Tier {
+    REGISTRY
+        .iter()
