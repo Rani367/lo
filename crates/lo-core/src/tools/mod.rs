@@ -47,3 +47,26 @@ pub const POWER_USER_REQUIRED: &str =
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GateDecision {
     /// Run the tool.
+    Allow,
+    /// Refuse: a non-safe tool with power-user mode off.
+    DenyNeedsPowerUser,
+}
+
+static REGISTRY: LazyLock<Vec<ToolSchema>> = LazyLock::new(build_registry);
+
+/// The full advertised tool set.
+pub fn tool_schemas() -> &'static [ToolSchema] {
+    &REGISTRY
+}
+
+/// The tools serialized for the `tools[]` request parameter (tier omitted — it's
+/// an internal concern the model never sees).
+pub fn tool_schemas_json() -> serde_json::Value {
+    serde_json::Value::Array(
+        REGISTRY
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
