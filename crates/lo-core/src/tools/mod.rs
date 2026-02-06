@@ -93,3 +93,26 @@ pub fn tool_names() -> String {
 pub fn tier_for(name: &str) -> Tier {
     REGISTRY
         .iter()
+        .find(|t| t.name == name)
+        .map(|t| t.tier)
+        .unwrap_or(Tier::Safe)
+}
+
+/// The safety gate: confirm/danger tools run only when power-user mode is on.
+pub fn gate(name: &str, power_user_mode: bool) -> GateDecision {
+    if tier_for(name) != Tier::Safe && !power_user_mode {
+        GateDecision::DenyNeedsPowerUser
+    } else {
+        GateDecision::Allow
+    }
+}
+
+// --- schema builders mirroring the TS `str`/`obj` helpers ---
+
+fn str_param(desc: &str) -> serde_json::Value {
+    serde_json::json!({ "type": "string", "description": desc })
+}
+
+fn obj(properties: serde_json::Value, required: &[&str]) -> serde_json::Value {
+    serde_json::json!({ "type": "object", "properties": properties, "required": required })
+}
