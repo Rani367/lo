@@ -162,3 +162,26 @@ fn build_registry() -> Vec<ToolSchema> {
         tool(Safe, "read_clipboard", "Read the current text contents of the system clipboard.", obj(serde_json::json!({}), &[])),
         tool(Safe, "write_clipboard", "Replace the system clipboard with the given text.",
             obj(serde_json::json!({ "text": str_param("The text to copy.") }), &["text"])),
+
+        // ---- filesystem (sandboxed to the allowed roots) ----
+        tool(Safe, "read_file", "Read a text file (within the allowed folders) and return its contents.",
+            obj(serde_json::json!({ "path": str_param("Absolute or ~ path to the file.") }), &["path"])),
+        tool(Safe, "list_dir", "List the contents of a directory (within the allowed folders).",
+            obj(serde_json::json!({ "path": str_param("Absolute or ~ path to the directory.") }), &["path"])),
+        tool(Safe, "search_files", "Find files whose names contain a query, under a directory (within the allowed folders).",
+            obj(serde_json::json!({ "path": str_param("Directory to search under."), "query": str_param("Substring to match in file names.") }), &["path", "query"])),
+        tool(Confirm, "open_path", "Open a file or folder in its default application / the file manager.",
+            obj(serde_json::json!({ "path": str_param("Absolute or ~ path.") }), &["path"])),
+        tool(Danger, "write_file", "Create or overwrite a text file with the given contents (within the allowed folders).",
+            obj(serde_json::json!({ "path": str_param("Absolute or ~ path."), "content": str_param("The file contents."), "overwrite": { "type": "boolean", "description": "Allow replacing an existing file." } }), &["path", "content"])),
+        tool(Danger, "move_path", "Move or rename a file or folder (within the allowed folders).",
+            obj(serde_json::json!({ "from": str_param("Source path."), "to": str_param("Destination path.") }), &["from", "to"])),
+        tool(Danger, "delete_path", "Delete a file or folder (within the allowed folders).",
+            obj(serde_json::json!({ "path": str_param("Absolute or ~ path.") }), &["path"])),
+
+        // ---- shell ----
+        tool(Danger, "run_command", "Run a shell command. Provide the executable and its arguments as separate values (never one string). Use for anything no other tool covers.",
+            obj(serde_json::json!({ "command": str_param("The executable, e.g. \"git\"."), "args": { "type": "array", "items": { "type": "string" }, "description": "Arguments, e.g. [\"status\"]." }, "cwd": str_param("Optional working directory (within the allowed folders).") }), &["command"])),
+    ]
+}
+
