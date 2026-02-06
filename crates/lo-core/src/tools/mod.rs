@@ -139,3 +139,26 @@ fn build_registry() -> Vec<ToolSchema> {
             obj(serde_json::json!({ "query": str_param("A focused natural-language search query.") }), &["query"])),
         tool(Safe, "fetch_url", "Fetch a web page (or API URL) and return its readable text so you can answer about its contents. Public http/https only.",
             obj(serde_json::json!({ "url": str_param("The absolute http(s) URL to fetch.") }), &["url"])),
+        tool(Safe, "get_datetime", "Get the current local date and time.", obj(serde_json::json!({}), &[])),
+        tool(Safe, "system_info", "Read host telemetry: overview, cpu, memory, disk, battery, network, or all.",
+            obj(serde_json::json!({ "kind": str_param("One of: overview, cpu, memory, disk, battery, network, all.") }), &[])),
+
+        // ---- apps / desktop ----
+        tool(Safe, "open_app", "Open/launch an application on the computer by name (e.g. \"Spotify\", \"Safari\").",
+            obj(serde_json::json!({ "name": str_param("The application name.") }), &["name"])),
+        tool(Safe, "focus_app", "Bring an already-running application to the foreground by name.",
+            obj(serde_json::json!({ "name": str_param("The application name.") }), &["name"])),
+        tool(Confirm, "quit_app", "Quit a running application by name.",
+            obj(serde_json::json!({ "name": str_param("The application name.") }), &["name"])),
+        tool(Safe, "set_volume", "Set the system output volume to a percentage from 0 to 100.",
+            obj(serde_json::json!({ "percent": { "type": "number", "description": "0-100" } }), &["percent"])),
+        tool(Safe, "media_control", "Control media playback: play, pause, playpause, next, previous, or stop.",
+            obj(serde_json::json!({ "action": str_param("play | pause | playpause | next | previous | stop") }), &["action"])),
+        tool(Safe, "set_timer", "Start a countdown timer; Lo announces when it completes.",
+            obj(serde_json::json!({ "seconds": { "type": "number", "description": "Duration in seconds." }, "label": str_param("Optional label, e.g. \"tea\".") }), &["seconds"])),
+        tool(Safe, "take_screenshot", "Capture a screenshot of the screen and save it to the Pictures folder.", obj(serde_json::json!({}), &[])),
+
+        // ---- clipboard ----
+        tool(Safe, "read_clipboard", "Read the current text contents of the system clipboard.", obj(serde_json::json!({}), &[])),
+        tool(Safe, "write_clipboard", "Replace the system clipboard with the given text.",
+            obj(serde_json::json!({ "text": str_param("The text to copy.") }), &["text"])),
