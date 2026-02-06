@@ -24,3 +24,26 @@ use std::sync::LazyLock;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
+pub enum Tier {
+    Safe,
+    Confirm,
+    Danger,
+}
+
+/// One advertised tool: its safety tier plus the OpenAI function schema.
+pub struct ToolSchema {
+    pub tier: Tier,
+    pub name: &'static str,
+    pub description: &'static str,
+    /// JSON-schema `parameters` object.
+    pub parameters: serde_json::Value,
+}
+
+/// The canned refusal returned when a gated tool is called with power-user off.
+pub const POWER_USER_REQUIRED: &str =
+    "That action needs power-user mode, which is off. Enable powerUserMode in settings to allow it.";
+
+/// The result of the safety gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GateDecision {
+    /// Run the tool.
