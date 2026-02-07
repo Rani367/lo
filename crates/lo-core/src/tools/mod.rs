@@ -208,3 +208,26 @@ mod tests {
         assert_eq!(tier_for("nonexistent_tool"), Tier::Safe);
     }
 
+    #[test]
+    fn gate_refuses_danger_without_power_user() {
+        assert_eq!(gate("run_command", false), GateDecision::DenyNeedsPowerUser);
+        assert_eq!(gate("delete_path", false), GateDecision::DenyNeedsPowerUser);
+        assert_eq!(gate("quit_app", false), GateDecision::DenyNeedsPowerUser);
+        // Safe tools always run.
+        assert_eq!(gate("web_search", false), GateDecision::Allow);
+        assert_eq!(gate("read_file", false), GateDecision::Allow);
+    }
+
+    #[test]
+    fn gate_allows_everything_in_power_user_mode() {
+        for t in tool_schemas() {
+            assert_eq!(
+                gate(t.name, true),
+                GateDecision::Allow,
+                "{} should be allowed",
+                t.name
+            );
+        }
+    }
+
+    #[test]
