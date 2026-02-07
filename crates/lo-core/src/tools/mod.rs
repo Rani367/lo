@@ -185,3 +185,26 @@ fn build_registry() -> Vec<ToolSchema> {
     ]
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_has_all_21_tools() {
+        assert_eq!(tool_schemas().len(), 21);
+    }
+
+    #[test]
+    fn tiers_match_the_electron_app() {
+        assert_eq!(tier_for("web_search"), Tier::Safe);
+        assert_eq!(tier_for("read_file"), Tier::Safe);
+        assert_eq!(tier_for("quit_app"), Tier::Confirm);
+        assert_eq!(tier_for("open_path"), Tier::Confirm);
+        assert_eq!(tier_for("write_file"), Tier::Danger);
+        assert_eq!(tier_for("move_path"), Tier::Danger);
+        assert_eq!(tier_for("delete_path"), Tier::Danger);
+        assert_eq!(tier_for("run_command"), Tier::Danger);
+        // Unknown tools default to Safe (matching `?? 'safe'`).
+        assert_eq!(tier_for("nonexistent_tool"), Tier::Safe);
+    }
+
