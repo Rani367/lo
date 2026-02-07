@@ -231,3 +231,22 @@ mod tests {
     }
 
     #[test]
+    fn advertised_json_omits_tier_and_keeps_schema() {
+        let json = tool_schemas_json();
+        let arr = json.as_array().unwrap();
+        assert_eq!(arr.len(), 21);
+        let first = &arr[0];
+        assert_eq!(first["type"], "function");
+        assert!(first["function"]["name"].is_string());
+        assert!(first["function"].get("tier").is_none());
+        assert!(first["function"]["parameters"]["type"] == "object");
+    }
+
+    #[test]
+    fn tool_names_lists_everything() {
+        let names = tool_names();
+        assert!(names.contains("web_search"));
+        assert!(names.contains("run_command"));
+        assert_eq!(names.split(", ").count(), 21);
+    }
+}
