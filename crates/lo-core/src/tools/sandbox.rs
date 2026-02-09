@@ -48,3 +48,26 @@ pub fn allowed_roots(settings: &LoSettings) -> Vec<PathBuf> {
 pub fn resolve_in_roots(settings: &LoSettings, input: &str) -> Result<PathBuf, SandboxError> {
     let p = input.trim();
     if p.is_empty() {
+        return Err(SandboxError::Empty);
+    }
+    let real = realpath_best_effort(&absolutize(&expand_home(p)));
+    let roots: Vec<PathBuf> = allowed_roots(settings)
+        .iter()
+        .map(|r| realpath_best_effort(r))
+        .collect();
+    let ok = roots
+        .iter()
+        .any(|root| &real == root || real.starts_with(root));
+    if !ok {
+        let roots_str = roots
+            .iter()
+            .map(|r| r.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(SandboxError::OutsideRoots { roots: roots_str });
+    }
+    Ok(real)
+}
+
+/// Absolutize (join the current dir if relative) and lexically normalize `.`/`..`
+/// so a relative or `..`-laden path can't lexically escape before the realpath
