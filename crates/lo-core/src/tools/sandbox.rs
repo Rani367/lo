@@ -71,3 +71,26 @@ pub fn resolve_in_roots(settings: &LoSettings, input: &str) -> Result<PathBuf, S
 
 /// Absolutize (join the current dir if relative) and lexically normalize `.`/`..`
 /// so a relative or `..`-laden path can't lexically escape before the realpath
+/// step. (Node's `path.resolve` collapses `..`; std's `absolute` does not, so we
+/// normalize ourselves.)
+fn absolutize(p: &Path) -> PathBuf {
+    let abs = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("/"))
+            .join(p)
+    };
+    lexical_normalize(&abs)
+}
+
+fn lexical_normalize(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in p.components() {
+        match comp {
+            Component::ParentDir => {
+                // Pop the last normal component (but never above the root/prefix).
+                if matches!(out.components().next_back(), Some(Component::Normal(_))) {
+                    out.pop();
+                } else if out.as_os_str().is_empty() {
+                    out.push("..");
