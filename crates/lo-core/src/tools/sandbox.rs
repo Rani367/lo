@@ -94,3 +94,26 @@ fn lexical_normalize(p: &Path) -> PathBuf {
                     out.pop();
                 } else if out.as_os_str().is_empty() {
                     out.push("..");
+                }
+            }
+            Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    if out.as_os_str().is_empty() {
+        out.push("/");
+    }
+    out
+}
+
+/// realpath the longest existing prefix of `p`, re-appending the not-yet-created
+/// tail — so brand-new files validate against where they would actually land.
+pub fn realpath_best_effort(p: &Path) -> PathBuf {
+    let mut cur = p.to_path_buf();
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    loop {
+        if let Ok(resolved) = std::fs::canonicalize(&cur) {
+            if tail.is_empty() {
+                return resolved;
+            }
+            let mut out = resolved;
