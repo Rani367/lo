@@ -117,3 +117,26 @@ pub fn realpath_best_effort(p: &Path) -> PathBuf {
                 return resolved;
             }
             let mut out = resolved;
+            for part in tail.iter().rev() {
+                out.push(part);
+            }
+            return out;
+        }
+        let parent = cur.parent().map(|p| p.to_path_buf());
+        match parent {
+            Some(parent) if parent != cur => {
+                if let Some(name) = cur.file_name() {
+                    tail.push(name.to_os_string());
+                }
+                cur = parent;
+            }
+            // Reached the root with nothing resolvable — return the original.
+            _ => return p.to_path_buf(),
+        }
+    }
+}
+
+/// A NUL byte in the first 4 KB ⇒ treat as binary (don't read as text).
+pub fn looks_binary(buf: &[u8]) -> bool {
+    buf.iter().take(4096).any(|&b| b == 0)
+}
