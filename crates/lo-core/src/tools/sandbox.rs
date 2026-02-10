@@ -163,3 +163,26 @@ mod tests {
     }
 
     #[test]
+    fn path_inside_root_is_accepted() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let s = settings_rooted_at(&root);
+        let target = root.join("notes.txt");
+        let resolved = resolve_in_roots(&s, target.to_str().unwrap()).unwrap();
+        assert!(resolved.starts_with(&root));
+    }
+
+    #[test]
+    fn dotdot_escape_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let sub = root.join("project");
+        fs::create_dir(&sub).unwrap();
+        let s = settings_rooted_at(&sub);
+        // ../../etc/passwd from inside `project` escapes the root.
+        let escape = format!("{}/../../etc/passwd", sub.display());
+        let err = resolve_in_roots(&s, &escape);
+        assert!(
+            matches!(err, Err(SandboxError::OutsideRoots { .. })),
+            "got {err:?}"
+        );
