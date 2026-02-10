@@ -140,3 +140,26 @@ pub fn realpath_best_effort(p: &Path) -> PathBuf {
 pub fn looks_binary(buf: &[u8]) -> bool {
     buf.iter().take(4096).any(|&b| b == 0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn settings_rooted_at(root: &Path) -> LoSettings {
+        LoSettings {
+            allowed_fs_roots: vec![root.to_string_lossy().into_owned()],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn empty_path_is_rejected() {
+        let s = LoSettings::default();
+        assert!(matches!(
+            resolve_in_roots(&s, "   "),
+            Err(SandboxError::Empty)
+        ));
+    }
+
+    #[test]
