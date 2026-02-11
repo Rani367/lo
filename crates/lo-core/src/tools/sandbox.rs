@@ -186,3 +186,26 @@ mod tests {
             matches!(err, Err(SandboxError::OutsideRoots { .. })),
             "got {err:?}"
         );
+    }
+
+    #[test]
+    fn symlink_pointing_outside_root_is_rejected() {
+        #[cfg(unix)]
+        {
+            let outside = tempfile::tempdir().unwrap();
+            let outside_real = fs::canonicalize(outside.path()).unwrap();
+            let root_dir = tempfile::tempdir().unwrap();
+            let root = fs::canonicalize(root_dir.path()).unwrap();
+            let s = settings_rooted_at(&root);
+            // A symlink inside the root that points outside it.
+            let link = root.join("escape");
+            std::os::unix::fs::symlink(&outside_real, &link).unwrap();
+            let target = link.join("secret.txt");
+            let err = resolve_in_roots(&s, target.to_str().unwrap());
+            assert!(
+                matches!(err, Err(SandboxError::OutsideRoots { .. })),
+                "symlink escape must be blocked: {err:?}"
+            );
+        }
+    }
+
