@@ -7,3 +7,26 @@
 
 use crate::config::LoSettings;
 use crate::tools::sandbox::{self, SandboxError};
+use std::path::PathBuf;
+
+pub const TIMEOUT_MS: u64 = 60_000;
+pub const MAX_OUTPUT: usize = 16 * 1024;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ShellError {
+    #[error("No command was given.")]
+    EmptyCommand,
+    #[error(transparent)]
+    Sandbox(#[from] SandboxError),
+}
+
+/// A validated, ready-to-spawn command (argv only — never a shell string).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunPlan {
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: PathBuf,
+}
+
+/// Validate a `run_command` request: non-empty executable, argv list, and a cwd
+/// confined to an allowed root (defaulting to the first root). Mirrors the
