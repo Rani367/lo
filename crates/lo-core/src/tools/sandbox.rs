@@ -209,3 +209,17 @@ mod tests {
         }
     }
 
+    #[test]
+    fn binary_sniff() {
+        assert!(looks_binary(b"abc\0def"));
+        assert!(!looks_binary(b"plain text"));
+    }
+
+    #[test]
+    fn expand_home_resolves_tilde() {
+        let home = paths::home_dir();
+        assert_eq!(expand_home("~"), home);
+        assert_eq!(expand_home("~/Documents"), home.join("Documents"));
+        assert_eq!(expand_home("/abs/path"), PathBuf::from("/abs/path"));
+    }
+}
