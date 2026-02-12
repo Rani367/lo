@@ -30,3 +30,26 @@ pub struct RunPlan {
 
 /// Validate a `run_command` request: non-empty executable, argv list, and a cwd
 /// confined to an allowed root (defaulting to the first root). Mirrors the
+/// resolution `runCommand` does before `execFile`.
+pub fn prepare(
+    settings: &LoSettings,
+    command: &str,
+    args: &[String],
+    cwd: Option<&str>,
+) -> Result<RunPlan, ShellError> {
+    let program = command.trim();
+    if program.is_empty() {
+        return Err(ShellError::EmptyCommand);
+    }
+    let dir = match cwd {
+        Some(c) if !c.trim().is_empty() => sandbox::resolve_in_roots(settings, c)?,
+        _ => sandbox::allowed_roots(settings)
+            .into_iter()
+            .next()
+            .unwrap_or_else(crate::config::paths::home_dir),
+    };
+    Ok(RunPlan {
+        program: program.to_string(),
+        args: args.to_vec(),
+        cwd: dir,
+    })
