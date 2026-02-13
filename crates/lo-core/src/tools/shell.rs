@@ -53,3 +53,26 @@ pub fn prepare(
         args: args.to_vec(),
         cwd: dir,
     })
+}
+
+/// Cap captured output to `MAX_OUTPUT` chars, appending a truncation marker.
+pub fn truncate_output(s: &str) -> String {
+    if s.chars().count() > MAX_OUTPUT {
+        let head: String = s.chars().take(MAX_OUTPUT).collect();
+        format!("{head}\n… (truncated)")
+    } else {
+        s.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn rooted(root: &std::path::Path) -> LoSettings {
+        LoSettings {
+            allowed_fs_roots: vec![root.to_string_lossy().into_owned()],
+            ..Default::default()
+        }
+    }
