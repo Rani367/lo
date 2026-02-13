@@ -99,3 +99,26 @@ mod tests {
 
     #[test]
     fn cwd_outside_roots_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let s = rooted(&root);
+        let outside = tempfile::tempdir().unwrap();
+        let outside_path = outside.path().to_string_lossy().into_owned();
+        let err = prepare(&s, "ls", &[], Some(&outside_path));
+        assert!(matches!(err, Err(ShellError::Sandbox(_))), "got {err:?}");
+    }
+
+    #[test]
+    fn argv_is_preserved_verbatim_no_shell_parsing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let s = rooted(&root);
+        // A would-be injection stays a single literal argument.
+        let plan = prepare(&s, "echo", &["; rm -rf /".to_string()], None).unwrap();
+        assert_eq!(plan.args, vec!["; rm -rf /".to_string()]);
+    }
+
+    #[test]
+    fn output_is_truncated() {
+        let big = "a".repeat(MAX_OUTPUT + 100);
+        let out = truncate_output(&big);
