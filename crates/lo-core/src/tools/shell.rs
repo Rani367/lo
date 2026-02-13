@@ -76,3 +76,26 @@ mod tests {
             ..Default::default()
         }
     }
+
+    #[test]
+    fn empty_command_is_rejected() {
+        let s = LoSettings::default();
+        assert!(matches!(
+            prepare(&s, "  ", &[], None),
+            Err(ShellError::EmptyCommand)
+        ));
+    }
+
+    #[test]
+    fn cwd_defaults_to_first_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(dir.path()).unwrap();
+        let s = rooted(&root);
+        let plan = prepare(&s, "git", &["status".to_string()], None).unwrap();
+        assert_eq!(plan.program, "git");
+        assert_eq!(plan.args, vec!["status".to_string()]);
+        assert_eq!(plan.cwd, root);
+    }
+
+    #[test]
+    fn cwd_outside_roots_is_rejected() {
