@@ -122,3 +122,6 @@ mod tests {
     fn output_is_truncated() {
         let big = "a".repeat(MAX_OUTPUT + 100);
         let out = truncate_output(&big);
+        assert!(out.ends_with("… (truncated)"));
+    }
+}
