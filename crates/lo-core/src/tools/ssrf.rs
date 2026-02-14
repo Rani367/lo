@@ -18,3 +18,26 @@ pub fn is_private_ip(ip: &str) -> bool {
             return true; // link-local
         }
         if a == 172 && (16..=31).contains(&b) {
+            return true;
+        }
+        if a == 192 && b == 168 {
+            return true;
+        }
+        if a == 100 && (64..=127).contains(&b) {
+            return true; // CGNAT
+        }
+        if a >= 224 {
+            return true; // multicast (224.0.0.0/4) + reserved/broadcast
+        }
+        return false;
+    }
+
+    let lc = ip.to_lowercase();
+    if lc == "::1" || lc == "::" {
+        return true; // loopback / unspecified
+    }
+    if lc.starts_with("fe80") || lc.starts_with("fc") || lc.starts_with("fd") {
+        return true; // link-local / ULA
+    }
+    if lc.starts_with("ff") {
+        return true; // multicast (ff00::/8)
