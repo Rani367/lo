@@ -41,3 +41,26 @@ pub fn is_private_ip(ip: &str) -> bool {
     }
     if lc.starts_with("ff") {
         return true; // multicast (ff00::/8)
+    }
+    false
+}
+
+/// Parse a dotted-quad IPv4 (exactly four all-digit octets, matching
+/// `/^\d+\.\d+\.\d+\.\d+$/`) and return its first two octets.
+fn parse_v4_first_two(s: &str) -> Option<(u16, u16)> {
+    let parts: Vec<&str> = s.split('.').collect();
+    if parts.len() != 4 {
+        return None;
+    }
+    if !parts
+        .iter()
+        .all(|p| !p.is_empty() && p.bytes().all(|c| c.is_ascii_digit()))
+    {
+        return None;
+    }
+    // JS `Number("999")` allows >255; mirror that (we only branch on ranges).
+    let a = parts[0].parse::<u32>().ok()? as u16;
+    let b = parts[1].parse::<u32>().ok()? as u16;
+    Some((a, b))
+}
+
