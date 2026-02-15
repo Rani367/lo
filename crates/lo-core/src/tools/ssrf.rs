@@ -64,3 +64,26 @@ fn parse_v4_first_two(s: &str) -> Option<(u16, u16)> {
     Some((a, b))
 }
 
+/// Reason a host literal is rejected before any DNS lookup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostReject {
+    PrivateLiteral,
+    Localhost,
+    DotLocal,
+}
+
+/// The pre-DNS literal check from `assertPublicHost`: reject a private-IP
+/// literal, `localhost`, or any `*.local` host. `None` means "passes the literal
+/// check; resolve + re-validate every record next".
+pub fn reject_literal_host(hostname: &str) -> Option<HostReject> {
+    let literal = hostname.trim_start_matches('[').trim_end_matches(']');
+    if is_private_ip(literal) {
+        return Some(HostReject::PrivateLiteral);
+    }
+    if hostname == "localhost" {
+        return Some(HostReject::Localhost);
+    }
+    if hostname.ends_with(".local") {
+        return Some(HostReject::DotLocal);
+    }
+    None
