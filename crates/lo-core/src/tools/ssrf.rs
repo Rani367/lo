@@ -87,3 +87,26 @@ pub fn reject_literal_host(hostname: &str) -> Option<HostReject> {
         return Some(HostReject::DotLocal);
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_private_ipv4_ranges() {
+        for ip in [
+            "10.0.0.1",
+            "127.0.0.1",
+            "0.0.0.0",
+            "169.254.169.254", // cloud metadata
+            "172.16.5.9",
+            "172.31.255.255",
+            "192.168.1.1",
+            "100.64.0.1", // CGNAT
+            "100.127.255.255",
+            "224.0.0.1", // multicast
+            "255.255.255.255",
+        ] {
+            assert!(is_private_ip(ip), "{ip} should be private");
+        }
