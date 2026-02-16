@@ -133,3 +133,26 @@ mod tests {
         assert!(is_private_ip("::ffff:169.254.169.254"));
         assert!(!is_private_ip("::ffff:8.8.8.8"));
     }
+
+    #[test]
+    fn rejects_private_ipv6() {
+        for ip in ["::1", "::", "fe80::1", "fc00::1", "fd12:3456::1", "ff02::1"] {
+            assert!(is_private_ip(ip), "{ip} should be private");
+        }
+        assert!(!is_private_ip("2606:4700:4700::1111")); // public (Cloudflare)
+    }
+
+    #[test]
+    fn literal_host_rejections() {
+        assert_eq!(
+            reject_literal_host("169.254.169.254"),
+            Some(HostReject::PrivateLiteral)
+        );
+        assert_eq!(
+            reject_literal_host("[::1]"),
+            Some(HostReject::PrivateLiteral)
+        );
+        assert_eq!(
+            reject_literal_host("localhost"),
+            Some(HostReject::Localhost)
+        );
