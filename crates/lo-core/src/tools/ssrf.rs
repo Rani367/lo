@@ -110,3 +110,26 @@ mod tests {
         ] {
             assert!(is_private_ip(ip), "{ip} should be private");
         }
+    }
+
+    #[test]
+    fn allows_public_ipv4() {
+        for ip in [
+            "8.8.8.8",
+            "1.1.1.1",
+            "172.15.0.1",
+            "172.32.0.1",
+            "100.63.0.1",
+            "100.128.0.1",
+            "192.167.0.1",
+        ] {
+            assert!(!is_private_ip(ip), "{ip} should be public");
+        }
+    }
+
+    #[test]
+    fn handles_ipv4_mapped_ipv6() {
+        assert!(is_private_ip("::ffff:127.0.0.1"));
+        assert!(is_private_ip("::ffff:169.254.169.254"));
+        assert!(!is_private_ip("::ffff:8.8.8.8"));
+    }
