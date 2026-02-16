@@ -156,3 +156,11 @@ mod tests {
             reject_literal_host("localhost"),
             Some(HostReject::Localhost)
         );
+        assert_eq!(
+            reject_literal_host("printer.local"),
+            Some(HostReject::DotLocal)
+        );
+        assert_eq!(reject_literal_host("example.com"), None);
+        assert_eq!(reject_literal_host("8.8.8.8"), None);
+    }
+}
