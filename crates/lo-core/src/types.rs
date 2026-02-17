@@ -13,3 +13,26 @@ pub enum LoState {
     Boot,
     Idle,
     Listening,
+    Thinking,
+    Speaking,
+    Error,
+}
+
+/// How a turn is activated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ActivationMode {
+    /// Wake word ("Computer").
+    Wake,
+    /// Push-to-talk (hold Space).
+    Ptt,
+    /// Voice-activity detection (auto-segment).
+    Vad,
+}
+
+/// A concrete LLM engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BackendKind {
+    Mlx,
+    Llama,
