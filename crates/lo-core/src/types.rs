@@ -36,3 +36,26 @@ pub enum ActivationMode {
 pub enum BackendKind {
     Mlx,
     Llama,
+    Ollama,
+    Custom,
+}
+
+impl BackendKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BackendKind::Mlx => "mlx",
+            BackendKind::Llama => "llama",
+            BackendKind::Ollama => "ollama",
+            BackendKind::Custom => "custom",
+        }
+    }
+}
+
+/// The user-selectable backend setting (`auto` resolves by platform/hardware).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BackendChoice {
+    Auto,
+    Mlx,
+    Llama,
+    Ollama,
