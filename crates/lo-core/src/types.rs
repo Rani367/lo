@@ -105,3 +105,24 @@ pub struct LocalStatus {
 }
 
 /// First-run engine/model download progress (managed llama.cpp backend).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelDownloadEvent {
+    /// `ENGINE` | `WEIGHTS` | …
+    pub label: String,
+    /// `None` = indeterminate.
+    pub pct: Option<u8>,
+}
+
+/// Hardware-tiered model recommendation for first-run setup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelRecommendation {
+    /// The logical model id to set (works for both MLX and llama backends).
+    pub model: String,
+    /// Short human label, e.g. "Qwen3-8B".
+    pub label: String,
+    /// Detected system memory (GB).
+    pub ram_gb: f64,
+    /// The engine that would serve it.
+    pub backend: BackendKind,
+}
