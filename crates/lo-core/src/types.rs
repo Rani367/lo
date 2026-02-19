@@ -59,3 +59,26 @@ pub enum BackendChoice {
     Mlx,
     Llama,
     Ollama,
+    Custom,
+}
+
+/// A chat message exchanged with the brain (the renderer-facing shape: no
+/// `tool`/`tool_calls`; the agent loop's richer message lives in `brain::types`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: ChatRole,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatRole {
+    System,
+    User,
+    Assistant,
+}
+
+/// The result of one full agent turn.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatTurnResult {
