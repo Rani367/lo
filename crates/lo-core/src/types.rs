@@ -82,3 +82,26 @@ pub enum ChatRole {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTurnResult {
+    pub turn_id: String,
+    pub reply: String,
+    pub used_web_search: bool,
+    pub tools_invoked: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Health of the local engine, shown in the HUD.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalStatus {
+    /// Sidecar process is running and the model is loaded + warmed.
+    pub engine_up: bool,
+    /// Model is still loading/warming (not an error — show a spinner).
+    pub loading: bool,
+    pub backend: Option<BackendKind>,
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// First-run engine/model download progress (managed llama.cpp backend).
