@@ -57,3 +57,26 @@ fn main() -> anyhow::Result<()> {
 
     let settings = LoSettings::load();
     tracing::info!(backend = ?settings.backend, model = %settings.model, "lo starting");
+
+    // Headless self-check: verify subsystems initialize without opening a window.
+    if std::env::args().any(|a| a == "--smoke") {
+        return smoke(&settings);
+    }
+
+    // cpal audio: the !Send AudioEngine stays on this (main) thread inside App;
+    // the Send AudioHandle is shared with the worker + listen thread.
+    let (mut audio_engine, audio_handle) = audio::new().context("audio init failed")?;
+    if let Err(e) = audio_engine.start() {
+        // Non-fatal: the UI still runs (e.g. no mic granted yet).
+        tracing::warn!("audio start failed: {e:#}");
+    }
+
+    // Channels / shared state.
+    let (ui_tx, ui_rx) = tokio::sync::mpsc::unbounded_channel::<UiCommand>();
+    let (epoch_tx, epoch_rx) = tokio::sync::watch::channel::<u64>(0);
+    let ptt_active = Arc::new(AtomicBool::new(false));
+
+    let event_loop = EventLoop::<AppEvent>::with_user_event()
+        .build()
+        .context("failed to build event loop")?;
+    let proxy = event_loop.create_proxy();
