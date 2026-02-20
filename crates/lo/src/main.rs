@@ -34,3 +34,26 @@ mod listen;
 mod ml;
 mod tools;
 mod worker;
+
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
+use anyhow::Context;
+use lo_core::LoSettings;
+use tracing_subscriber::EnvFilter;
+use winit::event_loop::EventLoop;
+
+use crate::app::App;
+use crate::events::{AppEvent, UiCommand};
+
+fn main() -> anyhow::Result<()> {
+    dotenvy::dotenv().ok();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_env("LO_LOG").unwrap_or_else(|_| EnvFilter::new("info,lo=debug")),
+        )
+        .with_writer(std::io::stderr)
+        .init();
+
+    let settings = LoSettings::load();
+    tracing::info!(backend = ?settings.backend, model = %settings.model, "lo starting");
