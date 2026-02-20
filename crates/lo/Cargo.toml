@@ -69,3 +69,13 @@ vad-silero = ["dep:ort", "dep:hf-hub"]
 # after `cargo install cargo-packager`. Verify the exact key spellings against the
 # installed cargo-packager version before a release.
 [package.metadata.packager]
+product-name = "Lo"
+identifier = "com.lo.assistant"
+category = "Utility"
+description = "A fast, local, pure-native Rust voice agent."
+icons = ["assets/icons/icon.png", "assets/icons/icon.icns", "assets/icons/icon.ico"]
+
+[package.metadata.packager.macos]
+# Critical: merges NSMicrophoneUsageDescription so macOS lets cpal open the mic.
+info-plist-path = "assets/macos/Info.plist"
+minimum-system-version = "11.0"
