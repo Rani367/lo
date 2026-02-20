@@ -80,3 +80,26 @@ fn main() -> anyhow::Result<()> {
         .build()
         .context("failed to build event loop")?;
     let proxy = event_loop.create_proxy();
+
+    // Worker on a dedicated thread with a current-thread tokio runtime. The
+    // worker's futures touch !Send values (tool execution, recursive directory
+    // walks), so they can't live on a shared multi-thread pool; a current-thread
+    // runtime's `block_on` imposes no `Send` bound.
+    {
+        let ctx = worker::WorkerCtx {
+            ui_rx,
+            proxy: proxy.clone(),
+            settings: settings.clone(),
+            audio: audio_handle.clone(),
+            epoch_rx: epoch_rx.clone(),
+        };
+        std::thread::Builder::new()
+            .name("lo-worker".into())
+            .spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("failed to build worker runtime");
+                rt.block_on(worker::run(ctx));
+            })
+            .expect("failed to spawn worker thread");
