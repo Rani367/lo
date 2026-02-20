@@ -46,3 +46,26 @@ sysinfo = "0.36.1"
 thiserror.workspace = true
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "process", "time", "fs", "sync", "io-util", "signal", "net"] }
 tokio-util = "0.7.18"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+wgpu = "25"
+whisper-rs = { version = "0.16.0", optional = true }
+winit = "0.30.13"
+xcap = "0.9.6"
+zip = "7.2.0"
+
+[features]
+default = ["ml"]
+# Heavy on-device ML. Each engine is independently toggleable so a host missing a
+# C/C++/CMake toolchain (or building offline) can still produce a working binary
+# (ASR/TTS/VAD degrade to clean stubs when their feature is off).
+ml = ["asr-whisper", "tts-kokoro", "vad-silero"]
+asr-whisper = ["dep:whisper-rs", "dep:hf-hub"]
+tts-kokoro = ["dep:kokoro-tts", "dep:hf-hub"]
+vad-silero = ["dep:ort", "dep:hf-hub"]
+
+# Packaging via cargo-packager (Phase 8). Produces .app/.dmg (macOS), .msi/.nsis
+# (Windows), .deb/.rpm/.appimage (Linux). Build with `cargo packager --release`
+# after `cargo install cargo-packager`. Verify the exact key spellings against the
+# installed cargo-packager version before a release.
+[package.metadata.packager]
