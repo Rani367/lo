@@ -11,3 +11,26 @@
 //!   - UI/listen → worker: `mpsc::UnboundedSender<UiCommand>`
 //!   - worker/ML → UI: `EventLoopProxy<AppEvent>` → `ApplicationHandler::user_event`
 //!   - barge-in epoch: a `watch::channel<u64>` the UI bumps and the worker/TTS
+//!     observe to abandon stale work.
+
+// Don't pop a console window on Windows release builds.
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+// The binary carries APIs that are wired up in later phases (wake-word
+// activation, settings hot-reload, engine prewarm, the status-HUD dot). Allow
+// dead_code crate-wide so CI's `-D warnings` stays green without prematurely
+// deleting that scaffolding; `lo-core` (the tested core) stays strictly clean.
+#![allow(dead_code)]
+
+mod app;
+mod audio;
+mod backends;
+mod brain;
+mod events;
+mod gui;
+mod listen;
+mod ml;
+mod tools;
+mod worker;
