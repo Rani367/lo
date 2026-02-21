@@ -103,3 +103,26 @@ fn main() -> anyhow::Result<()> {
                 rt.block_on(worker::run(ctx));
             })
             .expect("failed to spawn worker thread");
+    }
+
+    // Listen thread (std): owns ASR/VAD/wake, drains capture, emits transcripts.
+    listen::spawn(listen::ListenCtx {
+        audio: audio_handle.clone(),
+        proxy: proxy.clone(),
+        settings: settings.clone(),
+        ptt_active: ptt_active.clone(),
+    });
+
+    let mut app = App::new(app::AppCtx {
+        audio_engine,
+        audio: audio_handle,
+        ui_tx,
+        epoch_tx,
+        ptt_active,
+        settings,
+    });
+
+    event_loop.run_app(&mut app).context("event loop error")?;
+    Ok(())
+}
+
