@@ -126,3 +126,26 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `lo --smoke`: verify every subsystem initializes without opening a window
+/// (settings, backend endpoint resolution, the tool registry, audio devices, and
+/// which ML engines were compiled in). Used for headless / CI sanity checks.
+fn smoke(settings: &LoSettings) -> anyhow::Result<()> {
+    println!("lo smoke check");
+    println!(
+        "  config file: {}",
+        lo_core::config::paths::settings_file().display()
+    );
+    println!(
+        "  settings: backend={:?} model={} voice={} activation={:?}",
+        settings.backend, settings.model, settings.voice, settings.activation_mode
+    );
+    let ep = lo_core::backends::resolve_endpoint(settings);
+    println!(
+        "  backend: kind={:?} url={} model={}",
+        ep.kind, ep.base_url, ep.model_id
+    );
+    println!(
+        "  tools: {} registered",
+        lo_core::tools::tool_schemas().len()
+    );
+    match audio::new() {
