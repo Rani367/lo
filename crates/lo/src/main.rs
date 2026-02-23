@@ -149,3 +149,15 @@ fn smoke(settings: &LoSettings) -> anyhow::Result<()> {
         lo_core::tools::tool_schemas().len()
     );
     match audio::new() {
+        Ok(_) => println!("  audio: default input+output devices OK"),
+        Err(e) => println!("  audio: unavailable ({e})"),
+    }
+    println!(
+        "  ml: asr-whisper={} tts-kokoro={} vad-silero={}",
+        cfg!(feature = "asr-whisper"),
+        cfg!(feature = "tts-kokoro"),
+        cfg!(feature = "vad-silero"),
+    );
+    println!("OK");
+    Ok(())
+}
