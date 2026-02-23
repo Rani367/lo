@@ -9,3 +9,26 @@ pub mod state;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
+
+use lo_core::types::LoState;
+use lo_core::LoSettings;
+use tokio::sync::{mpsc::UnboundedSender, watch};
+use winit::application::ApplicationHandler;
+use winit::dpi::LogicalSize;
+use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::{Key, NamedKey};
+use winit::window::{Window, WindowId};
+
+use crate::audio::{AudioEngine, AudioHandle};
+use crate::events::{AppEvent, UiCommand};
+use crate::gui::{Captions, Gui};
+use state::Session;
+
+/// Everything `App::new` needs from `main`.
+pub struct AppCtx {
+    pub audio_engine: AudioEngine,
+    pub audio: AudioHandle,
+    pub ui_tx: UnboundedSender<UiCommand>,
+    pub epoch_tx: watch::Sender<u64>,
+    pub ptt_active: Arc<AtomicBool>,
