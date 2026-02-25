@@ -55,3 +55,26 @@ pub struct App {
 impl App {
     pub fn new(ctx: AppCtx) -> Self {
         let now = Instant::now();
+        Self {
+            _audio_engine: ctx.audio_engine,
+            audio: ctx.audio,
+            ui_tx: ctx.ui_tx,
+            epoch_tx: ctx.epoch_tx,
+            ptt_active: ctx.ptt_active,
+            settings: ctx.settings,
+            session: Session::new(),
+            gui: None,
+            window: None,
+            start: now,
+            last_frame: now,
+        }
+    }
+
+    /// Space pressed/released → push-to-talk (ptt is the default activation mode).
+    fn on_key(&mut self, ev: &KeyEvent) {
+        let is_space = matches!(ev.logical_key, Key::Named(NamedKey::Space));
+        if !is_space {
+            return;
+        }
+        match ev.state {
+            ElementState::Pressed => {
