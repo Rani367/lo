@@ -32,3 +32,26 @@ pub struct AppCtx {
     pub ui_tx: UnboundedSender<UiCommand>,
     pub epoch_tx: watch::Sender<u64>,
     pub ptt_active: Arc<AtomicBool>,
+    pub settings: LoSettings,
+}
+
+pub struct App {
+    // Kept alive so the cpal streams keep running (AudioEngine is !Send and must
+    // live on the main thread).
+    _audio_engine: AudioEngine,
+    audio: AudioHandle,
+    ui_tx: UnboundedSender<UiCommand>,
+    epoch_tx: watch::Sender<u64>,
+    ptt_active: Arc<AtomicBool>,
+    settings: LoSettings,
+
+    session: Session,
+    gui: Option<Gui>,
+    window: Option<Arc<Window>>,
+    start: Instant,
+    last_frame: Instant,
+}
+
+impl App {
+    pub fn new(ctx: AppCtx) -> Self {
+        let now = Instant::now();
