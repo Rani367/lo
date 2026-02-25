@@ -78,3 +78,26 @@ impl App {
         }
         match ev.state {
             ElementState::Pressed => {
+                if ev.repeat || self.session.ptt_recording {
+                    return;
+                }
+                // Barge-in: invalidate any in-flight turn, stop playback now.
+                let epoch = self.session.begin_listen();
+                let _ = self.epoch_tx.send(epoch);
+                self.audio.stop_playback();
+                let _ = self.ui_tx.send(UiCommand::Cancel { epoch });
+                self.ptt_active.store(true, Ordering::SeqCst);
+                self.set_gui_state();
+            }
+            ElementState::Released => {
+                if self.session.ptt_recording {
+                    // The listen thread sees the falling edge, finalizes the clip,
+                    // transcribes, and replies with AppEvent::Transcribed.
+                    self.ptt_active.store(false, Ordering::SeqCst);
+                }
+            }
+        }
+    }
+
+    fn on_app_event(&mut self, ev: AppEvent) {
+        match ev {
