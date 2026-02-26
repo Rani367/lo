@@ -147,3 +147,26 @@ impl App {
             AppEvent::ModelDownload { label, pct } => {
                 self.session.lo_text = match pct {
                     Some(p) => format!("Getting {label}… {p}%"),
+                    None => format!("Getting {label}…"),
+                };
+            }
+            AppEvent::ServerStatus(_status) => { /* reserved for a HUD status dot */ }
+            AppEvent::Error(e) => {
+                tracing::error!("worker error: {e}");
+                self.session.state = LoState::Error;
+                self.session.busy = false;
+                self.session.lo_text = e;
+                self.set_gui_state();
+            }
+        }
+    }
+
+    fn set_gui_state(&mut self) {
+        if let Some(gui) = &mut self.gui {
+            gui.set_state(self.session.state);
+        }
+    }
+
+    fn render(&mut self) {
+        let Some(gui) = &mut self.gui else { return };
+        let now = Instant::now();
