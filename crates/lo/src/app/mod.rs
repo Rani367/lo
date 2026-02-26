@@ -101,3 +101,26 @@ impl App {
 
     fn on_app_event(&mut self, ev: AppEvent) {
         match ev {
+            AppEvent::Transcribed { text, .. } => {
+                let t = text.trim().to_string();
+                if t.is_empty() {
+                    // Misfire / too short — return to idle.
+                    self.session.ptt_recording = false;
+                    self.session.busy = false;
+                    self.session.state = LoState::Idle;
+                } else {
+                    let (turn_id, history) = self.session.begin_turn(&t);
+                    let _ = self.ui_tx.send(UiCommand::StartTurn {
+                        turn_id,
+                        history,
+                        epoch: self.session.epoch,
+                    });
+                }
+                self.set_gui_state();
+            }
+            AppEvent::LlmDelta { turn_id, delta } => {
+                self.session.push_delta(&turn_id, &delta);
+                self.set_gui_state();
+            }
+            AppEvent::LlmTool {
+                turn_id,
