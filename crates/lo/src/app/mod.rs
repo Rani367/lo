@@ -124,3 +124,26 @@ impl App {
             }
             AppEvent::LlmTool {
                 turn_id,
+                tool,
+                status,
+                detail,
+            } => {
+                tracing::debug!(turn = %turn_id, %tool, ?status, ?detail, "tool event");
+            }
+            AppEvent::LlmDone { turn_id, result } => {
+                let reply = if result.reply.is_empty() {
+                    result.error.clone().unwrap_or_default()
+                } else {
+                    result.reply.clone()
+                };
+                self.session.finish_turn(&turn_id, &reply);
+                self.set_gui_state();
+            }
+            AppEvent::Announce(text) => {
+                // The worker speaks the announcement itself; we just surface it.
+                self.session.lo_text = lo_core::text::strip_directives(&text);
+                self.session.since_done = 0.0;
+            }
+            AppEvent::ModelDownload { label, pct } => {
+                self.session.lo_text = match pct {
+                    Some(p) => format!("Getting {label}… {p}%"),
