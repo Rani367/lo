@@ -170,3 +170,26 @@ impl App {
     fn render(&mut self) {
         let Some(gui) = &mut self.gui else { return };
         let now = Instant::now();
+        let dt = (now - self.last_frame).as_secs_f32().min(0.1);
+        self.last_frame = now;
+        let time = (now - self.start).as_secs_f32();
+        self.session.tick(dt);
+
+        let spectrum = self.audio.output_spectrum();
+        // The orb's size/brightness is driven by mic level while listening and by
+        // the output spectrum energy while Lo is speaking (matches the renderer feel).
+        let speaking = self.session.state == LoState::Speaking || self.audio.is_playing();
+        let level = if speaking {
+            (spectrum.iter().sum::<f32>() / spectrum.len() as f32).clamp(0.0, 1.0)
+        } else {
+            self.audio.input_level()
+        };
+
+        let caps = Captions {
+            you: self.session.you_text.clone(),
+            lo: self.session.lo_text.clone(),
+            fade: self.session.caption_fade(),
+        };
+        gui.set_state(self.session.state);
+        if let Err(e) = gui.render(dt, time, level, &spectrum, &caps) {
+            tracing::warn!("render error: {e:#}");
