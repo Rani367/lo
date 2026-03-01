@@ -216,3 +216,26 @@ impl ApplicationHandler<AppEvent> for App {
                 return;
             }
         };
+        match Gui::new(window.clone()) {
+            Ok(gui) => self.gui = Some(gui),
+            Err(e) => {
+                tracing::error!("GPU init failed: {e:#}");
+                event_loop.exit();
+                return;
+            }
+        }
+        self.window = Some(window);
+        // Boot → idle once the surface is live.
+        self.session.set_state(LoState::Idle);
+        self.set_gui_state();
+        if let Some(w) = &self.window {
+            w.request_redraw();
+        }
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        // Let egui see the event first (for any interactive chrome).
+        if let (Some(gui), Some(window)) = (&mut self.gui, &self.window) {
+            let _consumed = gui.on_window_event(window, &event);
+        }
+        match event {
