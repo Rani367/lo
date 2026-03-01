@@ -193,3 +193,26 @@ impl App {
         gui.set_state(self.session.state);
         if let Err(e) = gui.render(dt, time, level, &spectrum, &caps) {
             tracing::warn!("render error: {e:#}");
+        }
+    }
+}
+
+impl ApplicationHandler<AppEvent> for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.window.is_some() {
+            return;
+        }
+        let attrs = Window::default_attributes()
+            .with_title("Lo")
+            .with_decorations(false)
+            .with_transparent(true)
+            .with_inner_size(LogicalSize::new(1120.0, 720.0))
+            .with_min_inner_size(LogicalSize::new(420.0, 360.0));
+        let window = match event_loop.create_window(attrs) {
+            Ok(w) => Arc::new(w),
+            Err(e) => {
+                tracing::error!("window creation failed: {e}");
+                event_loop.exit();
+                return;
+            }
+        };
