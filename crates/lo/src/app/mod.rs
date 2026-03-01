@@ -239,3 +239,26 @@ impl ApplicationHandler<AppEvent> for App {
             let _consumed = gui.on_window_event(window, &event);
         }
         match event {
+            WindowEvent::CloseRequested => {
+                let _ = self.ui_tx.send(UiCommand::Shutdown);
+                event_loop.exit();
+            }
+            WindowEvent::Resized(size) => {
+                if let Some(gui) = &mut self.gui {
+                    gui.resize(size.width, size.height);
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => self.on_key(&event),
+            WindowEvent::RedrawRequested => self.render(),
+            _ => {}
+        }
+    }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: AppEvent) {
+        self.on_app_event(event);
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        // Drive continuous animation. (A 30 fps idle throttle is a later polish.)
+        if let Some(w) = &self.window {
+            w.request_redraw();
