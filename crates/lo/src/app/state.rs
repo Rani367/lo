@@ -64,3 +64,26 @@ impl Session {
         self.state = s;
     }
 
+    /// Barge-in / new listen: invalidate any in-flight turn. Returns the new epoch
+    /// the caller should pass to `UiCommand::Cancel` and carry into the next turn.
+    pub fn interrupt(&mut self) -> u64 {
+        self.epoch += 1;
+        self.active_turn_id.clear();
+        self.busy = false;
+        self.epoch
+    }
+
+    /// Start listening (push-to-talk pressed). Bumps the epoch so a turn in
+    /// progress is abandoned (barge-in).
+    pub fn begin_listen(&mut self) -> u64 {
+        let e = self.interrupt();
+        self.ptt_recording = true;
+        self.you_text.clear();
+        self.lo_text.clear();
+        self.state = LoState::Listening;
+        e
+    }
+
+    /// The user finished a clip and it transcribed to `transcript`. Shapes the
+    /// outgoing history (drop a dangling trailing `user` turn, push the new user
+    /// message, cap to `MAX_HISTORY`) and mints a fresh `turn_id`. Returns
