@@ -18,3 +18,26 @@ pub const IDLE_FADE_SECS: f32 = 4.2;
 /// UI-thread session state.
 pub struct Session {
     pub state: LoState,
+    /// Bumped on every new listen / barge-in; gates async tails.
+    pub epoch: u64,
+    /// The turn whose streamed deltas/tools the UI currently accepts.
+    pub active_turn_id: String,
+    /// A turn is in flight (thinking/speaking).
+    pub busy: bool,
+    /// Space is held and we're buffering a PTT clip.
+    pub ptt_recording: bool,
+    /// Rolling transcript shared with the brain.
+    pub history: Vec<ChatMessage>,
+    /// The user's last utterance (top caption line).
+    pub you_text: String,
+    /// Lo's streaming reply (bottom caption line).
+    pub lo_text: String,
+    /// Seconds since the last turn finished (drives the caption fade).
+    pub since_done: f32,
+    turn_counter: u64,
+}
+
+impl Default for Session {
+    fn default() -> Self {
+        Self::new()
+    }
