@@ -41,3 +41,26 @@ impl Default for Session {
     fn default() -> Self {
         Self::new()
     }
+}
+
+impl Session {
+    pub fn new() -> Self {
+        Self {
+            state: LoState::Boot,
+            epoch: 0,
+            active_turn_id: String::new(),
+            busy: false,
+            ptt_recording: false,
+            history: Vec::new(),
+            you_text: String::new(),
+            lo_text: String::new(),
+            since_done: 0.0,
+            turn_counter: 0,
+        }
+    }
+
+    /// Set the visual state directly (e.g. boot → idle once the GPU is live).
+    pub fn set_state(&mut self, s: LoState) {
+        self.state = s;
+    }
+
