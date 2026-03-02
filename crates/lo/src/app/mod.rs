@@ -262,3 +262,6 @@ impl ApplicationHandler<AppEvent> for App {
         // Drive continuous animation. (A 30 fps idle throttle is a later polish.)
         if let Some(w) = &self.window {
             w.request_redraw();
+        }
+    }
+}
