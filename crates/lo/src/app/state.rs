@@ -87,3 +87,26 @@ impl Session {
     /// The user finished a clip and it transcribed to `transcript`. Shapes the
     /// outgoing history (drop a dangling trailing `user` turn, push the new user
     /// message, cap to `MAX_HISTORY`) and mints a fresh `turn_id`. Returns
+    /// `(turn_id, history_snapshot)` for `UiCommand::StartTurn`.
+    pub fn begin_turn(&mut self, transcript: &str) -> (String, Vec<ChatMessage>) {
+        self.ptt_recording = false;
+        self.you_text = transcript.to_string();
+        self.lo_text.clear();
+        self.busy = true;
+        self.state = LoState::Thinking;
+
+        // Drop a dangling trailing user message (a prior turn that never got a
+        // reply) before pushing this one, matching renderer.ts.
+        if matches!(self.history.last(), Some(m) if m.role == ChatRole::User) {
+            self.history.pop();
+        }
+        self.history.push(ChatMessage {
+            role: ChatRole::User,
+            content: transcript.to_string(),
+        });
+        if self.history.len() > MAX_HISTORY {
+            let drop = self.history.len() - MAX_HISTORY;
+            self.history.drain(0..drop);
+        }
+
+        self.turn_counter += 1;
