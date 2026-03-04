@@ -156,3 +156,26 @@ impl Session {
         }
     }
 
+    /// Advance per-frame timers.
+    pub fn tick(&mut self, dt: f32) {
+        if !self.busy && !self.ptt_recording {
+            self.since_done += dt;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn barge_in_bumps_epoch_and_clears_active_turn() {
+        let mut s = Session::new();
+        let (tid, _h) = s.begin_turn("hello");
+        assert_eq!(s.active_turn_id, tid);
+        assert!(s.busy);
+        let e = s.interrupt();
+        assert_eq!(e, s.epoch);
+        assert!(s.active_turn_id.is_empty());
+        assert!(!s.busy);
+    }
