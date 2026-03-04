@@ -133,3 +133,26 @@ impl Session {
         }
         if !reply.is_empty() {
             self.history.push(ChatMessage {
+                role: ChatRole::Assistant,
+                content: reply.to_string(),
+            });
+            if self.history.len() > MAX_HISTORY {
+                let drop = self.history.len() - MAX_HISTORY;
+                self.history.drain(0..drop);
+            }
+        }
+        self.active_turn_id.clear();
+        self.busy = false;
+        self.since_done = 0.0;
+        self.state = LoState::Idle;
+    }
+
+    /// Caption alpha (1.0 while active/recent, fading to 0 over `IDLE_FADE_SECS`).
+    pub fn caption_fade(&self) -> f32 {
+        if self.busy || self.ptt_recording || self.since_done < IDLE_FADE_SECS {
+            1.0
+        } else {
+            (1.0 - (self.since_done - IDLE_FADE_SECS) / 0.7).clamp(0.0, 1.0)
+        }
+    }
+
