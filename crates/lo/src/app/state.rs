@@ -110,3 +110,26 @@ impl Session {
         }
 
         self.turn_counter += 1;
+        let turn_id = format!("t{}-{}", self.epoch, self.turn_counter);
+        self.active_turn_id = turn_id.clone();
+        (turn_id, self.history.clone())
+    }
+
+    /// Append a streamed prose delta if it belongs to the active turn.
+    pub fn push_delta(&mut self, turn_id: &str, delta: &str) {
+        if turn_id == self.active_turn_id {
+            self.lo_text.push_str(delta);
+            if self.state != LoState::Speaking {
+                self.state = LoState::Speaking;
+            }
+        }
+    }
+
+    /// Finish the active turn: record the assistant reply in history, return to
+    /// idle, and start the caption fade timer.
+    pub fn finish_turn(&mut self, turn_id: &str, reply: &str) {
+        if turn_id != self.active_turn_id {
+            return; // a superseded turn — ignore
+        }
+        if !reply.is_empty() {
+            self.history.push(ChatMessage {
