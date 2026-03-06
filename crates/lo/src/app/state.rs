@@ -179,3 +179,26 @@ mod tests {
         assert!(s.active_turn_id.is_empty());
         assert!(!s.busy);
     }
+
+    #[test]
+    fn dangling_user_turn_is_dropped_before_new_user_msg() {
+        let mut s = Session::new();
+        s.begin_turn("first question"); // pushes a user msg, no reply recorded
+        s.begin_turn("second question"); // should drop the dangling first user msg
+        let users: Vec<_> = s
+            .history
+            .iter()
+            .filter(|m| m.role == ChatRole::User)
+            .collect();
+        assert_eq!(users.len(), 1);
+        assert_eq!(users[0].content, "second question");
+    }
+
+    #[test]
+    fn deltas_for_stale_turns_are_ignored() {
+        let mut s = Session::new();
+        let (tid, _) = s.begin_turn("q");
+        s.push_delta(&tid, "Hello");
+        assert_eq!(s.lo_text, "Hello");
+        s.interrupt(); // active turn cleared
+        s.push_delta(&tid, " world"); // stale
