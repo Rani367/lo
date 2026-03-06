@@ -202,3 +202,16 @@ mod tests {
         assert_eq!(s.lo_text, "Hello");
         s.interrupt(); // active turn cleared
         s.push_delta(&tid, " world"); // stale
+        assert_eq!(s.lo_text, "Hello");
+    }
+
+    #[test]
+    fn history_is_capped() {
+        let mut s = Session::new();
+        for i in 0..20 {
+            let (tid, _) = s.begin_turn(&format!("q{i}"));
+            s.finish_turn(&tid, &format!("a{i}"));
+        }
+        assert!(s.history.len() <= MAX_HISTORY);
+    }
+}
