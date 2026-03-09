@@ -31,3 +31,26 @@ pub struct InputLevel {
 }
 
 impl InputLevel {
+    /// Start at zero level (silence).
+    pub fn new() -> Self {
+        Self {
+            bits: AtomicU32::new(0.0f32.to_bits()),
+        }
+    }
+
+    /// RT-safe: fold one block's RMS into the EMA. Pure arithmetic — no alloc,
+    /// no locks — so it is safe to call from the audio callback.
+    pub fn push_block(&self, block: &[f32]) {
+        if block.is_empty() {
+            return;
+        }
+        let mut sum = 0.0f64;
+        for &s in block {
+            sum += (s as f64) * (s as f64);
+        }
+        let rms = (sum / block.len() as f64).sqrt() as f32;
+        let prev = f32::from_bits(self.bits.load(Ordering::Relaxed));
+        // Exact EMA from capture-vad.ts: level = level*0.6 + rms*0.4.
+        let next = prev * 0.6 + rms * 0.4;
+        self.bits.store(next.to_bits(), Ordering::Relaxed);
+    }
