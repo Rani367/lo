@@ -54,3 +54,26 @@ impl InputLevel {
         let next = prev * 0.6 + rms * 0.4;
         self.bits.store(next.to_bits(), Ordering::Relaxed);
     }
+
+    /// Reset to silence (e.g. when the mic is paused).
+    pub fn reset(&self) {
+        self.bits.store(0.0f32.to_bits(), Ordering::Relaxed);
+    }
+
+    /// 0..1 smoothed amplitude for the orb — `min(1, level*4)` per the renderer.
+    pub fn level(&self) -> f32 {
+        let l = f32::from_bits(self.bits.load(Ordering::Relaxed));
+        (l * 4.0).min(1.0)
+    }
+}
+
+impl Default for InputLevel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Producer/consumer halves of the capture path plus the shared level.
+///
+/// The `raw_*` ring carries device-rate mono f32 from the callback to the
+/// resample worker; the `cap16k_*` ring carries finished 16 kHz mono f32 from
