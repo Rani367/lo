@@ -37,3 +37,26 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Data, Sample, SampleFormat, Stream, StreamConfig};
 
 use crate::audio::capture::{pump_resample, CaptureRings, InputLevel, CAPTURE_RATE};
+use crate::audio::playback::{fill_output, PlaybackRings, PlaybackState};
+use crate::audio::resample::{resample_mono, MonoResampler};
+use crate::audio::spectrum::{SpectrumAnalyzer, BANDS};
+
+/// Kokoro TTS emits 24 kHz mono f32 PCM.
+pub const KOKORO_RATE: u32 = 24_000;
+
+/// Ring capacity (samples) for the device-rate raw capture path (~0.5 s at
+/// 48 kHz). Generous so a slow worker pass never overruns the callback.
+const RAW_CAP: usize = 48_000;
+/// Ring capacity (samples) for the 16 kHz capture path (~4 s of speech).
+const CAP16K_CAP: usize = 64_000;
+/// Ring capacity (samples) for queued device-rate playback PCM (~5 s @ 48 kHz).
+const PCM_CAP: usize = 240_000;
+/// Ring capacity (samples) for the output spectrum tee (~0.2 s @ 48 kHz).
+const TEE_CAP: usize = 8_192;
+
+/// Smallest/largest sane callback block (frames) — clamps pathological buffer
+/// sizes some drivers report.
+const MIN_BLOCK: u32 = 16;
+const MAX_BLOCK: u32 = 8_192;
+
+/// Owns the cpal input + output streams and the capture resample worker.
