@@ -123,3 +123,26 @@ pub fn pump_resample(
         return 0;
     }
     if let Ok(chunk) = raw_cons.read_chunk(available) {
+        let (a, b) = chunk.as_slices();
+        scratch_in.extend_from_slice(a);
+        scratch_in.extend_from_slice(b);
+        chunk.commit_all();
+    }
+    if scratch_in.is_empty() {
+        return 0;
+    }
+
+    scratch_out.clear();
+    // Identity path: device already at 16 kHz.
+    if resampler.from_rate() == resampler.to_rate() {
+        scratch_out.extend_from_slice(&scratch_in[..]);
+    } else {
+        resampler.process(&scratch_in[..], scratch_out);
+    }
+
+    // Push as much as fits; drop the remainder rather than block (capture is
+    // best-effort and the consumer drains frequently).
+    let room = cap16k_prod.slots();
+    let n = scratch_out.len().min(room);
+    if n > 0 {
+        if let Ok(wchunk) = cap16k_prod.write_chunk_uninit(n) {
