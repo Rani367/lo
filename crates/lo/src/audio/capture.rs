@@ -146,3 +146,10 @@ pub fn pump_resample(
     let n = scratch_out.len().min(room);
     if n > 0 {
         if let Ok(wchunk) = cap16k_prod.write_chunk_uninit(n) {
+            // `fill_from_iter` initialises and commits the slots it consumes; it
+            // stops at the chunk length, so feeding the first `n` is exact.
+            wchunk.fill_from_iter(scratch_out[..n].iter().copied());
+        }
+    }
+    n
+}
