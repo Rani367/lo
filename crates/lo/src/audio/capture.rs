@@ -100,3 +100,26 @@ impl CaptureRings {
             cap16k_prod,
             cap16k_cons,
             level: Arc::new(InputLevel::new()),
+        }
+    }
+}
+
+/// Drain the raw device-rate ring, resample to 16 kHz, and push into the 16 kHz
+/// ring. Runs on a worker thread. Returns the number of 16 kHz samples produced.
+///
+/// Caller owns the loop/sleep; this performs one pass over whatever is
+/// currently buffered. `scratch_in`/`scratch_out` are reusable buffers supplied
+/// by the caller to avoid per-call allocation.
+pub fn pump_resample(
+    raw_cons: &mut Consumer<f32>,
+    cap16k_prod: &mut Producer<f32>,
+    resampler: &mut MonoResampler,
+    scratch_in: &mut Vec<f32>,
+    scratch_out: &mut Vec<f32>,
+) -> usize {
+    scratch_in.clear();
+    let available = raw_cons.slots();
+    if available == 0 {
+        return 0;
+    }
+    if let Ok(chunk) = raw_cons.read_chunk(available) {
