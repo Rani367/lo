@@ -14,3 +14,26 @@
 //!   handle.
 //!
 //! Build both with [`new`], then call [`AudioEngine::start`] on the owning
+//! thread to bring up the streams.
+//!
+//! # RT-safety
+//!
+//! The cpal data callbacks touch only `rtrb` rings and atomics — no allocation,
+//! locks, or DSP. Resampling (rubato) and the spectrum FFT (rustfft) run on the
+//! resample worker thread or inside the handle's `enqueue_pcm` / `output_spectrum`
+//! calls, never in a callback.
+
+pub mod capture;
+pub mod playback;
+pub mod resample;
+pub mod spectrum;
+
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
+use std::time::Duration;
+
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::{Data, Sample, SampleFormat, Stream, StreamConfig};
+
+use crate::audio::capture::{pump_resample, CaptureRings, InputLevel, CAPTURE_RATE};
