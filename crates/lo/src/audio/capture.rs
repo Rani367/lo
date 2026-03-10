@@ -77,3 +77,26 @@ impl Default for InputLevel {
 ///
 /// The `raw_*` ring carries device-rate mono f32 from the callback to the
 /// resample worker; the `cap16k_*` ring carries finished 16 kHz mono f32 from
+/// the worker to consumers ([`drain_16k`](CaptureChannel) via the handle).
+pub struct CaptureRings {
+    /// Device-rate mono f32, written by the input callback.
+    pub raw_prod: Producer<f32>,
+    pub raw_cons: Consumer<f32>,
+    /// 16 kHz mono f32, written by the resample worker, read by ASR/VAD.
+    pub cap16k_prod: Producer<f32>,
+    pub cap16k_cons: Consumer<f32>,
+    /// Smoothed listening level.
+    pub level: Arc<InputLevel>,
+}
+
+impl CaptureRings {
+    /// Allocate the capture rings. `raw_capacity`/`cap_capacity` are in samples.
+    pub fn new(raw_capacity: usize, cap_capacity: usize) -> Self {
+        let (raw_prod, raw_cons) = RingBuffer::<f32>::new(raw_capacity);
+        let (cap16k_prod, cap16k_cons) = RingBuffer::<f32>::new(cap_capacity);
+        Self {
+            raw_prod,
+            raw_cons,
+            cap16k_prod,
+            cap16k_cons,
+            level: Arc::new(InputLevel::new()),
