@@ -83,3 +83,26 @@ pub struct AudioEngine {
 
     /// Shared mic level (also held by the handle).
     level: Arc<InputLevel>,
+    /// Shared playback state (also held by the handle).
+    play_state: Arc<PlaybackState>,
+
+    /// Live streams (None until `start`). Kept here so they stay on this thread.
+    input_stream: Option<Stream>,
+    output_stream: Option<Stream>,
+    /// Capture resample worker.
+    worker: Option<JoinHandle<()>>,
+    worker_stop: Arc<std::sync::atomic::AtomicBool>,
+}
+
+/// `Send + Sync + Clone` handle used by every thread other than the engine's.
+///
+/// Holds the ring endpoints the workers touch (behind mutexes — these methods
+/// are *not* the RT callback) plus the shared atomics.
+#[derive(Clone)]
+pub struct AudioHandle {
+    /// Consumer for finished 16 kHz capture samples.
+    cap16k_cons: Arc<Mutex<rtrb::Consumer<f32>>>,
+    /// Producer for device-rate playback PCM.
+    pcm_prod: Arc<Mutex<rtrb::Producer<f32>>>,
+    /// Consumer for the output spectrum tee.
+    tee_cons: Arc<Mutex<rtrb::Consumer<f32>>>,
