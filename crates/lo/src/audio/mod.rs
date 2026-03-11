@@ -60,3 +60,26 @@ const MIN_BLOCK: u32 = 16;
 const MAX_BLOCK: u32 = 8_192;
 
 /// Owns the cpal input + output streams and the capture resample worker.
+///
+/// **Not `Send`** — keep on the thread that called [`new`]. Dropping it stops
+/// and tears down the streams and joins the worker.
+pub struct AudioEngine {
+    input_device: cpal::Device,
+    output_device: cpal::Device,
+    input_config: cpal::SupportedStreamConfig,
+    output_config: cpal::SupportedStreamConfig,
+
+    /// Producer end of the raw capture ring; moved into the input callback on
+    /// `start`. `Option` so it can be taken exactly once.
+    raw_prod: Option<rtrb::Producer<f32>>,
+    /// Consumer end of the raw capture ring; moved into the worker on `start`.
+    raw_cons: Option<rtrb::Consumer<f32>>,
+    /// Producer end of the 16 kHz ring; moved into the worker on `start`.
+    cap16k_prod: Option<rtrb::Producer<f32>>,
+    /// Consumer end of the playback ring; moved into the output callback.
+    pcm_cons: Option<rtrb::Consumer<f32>>,
+    /// Producer end of the spectrum tee; moved into the output callback.
+    tee_prod: Option<rtrb::Producer<f32>>,
+
+    /// Shared mic level (also held by the handle).
+    level: Arc<InputLevel>,
