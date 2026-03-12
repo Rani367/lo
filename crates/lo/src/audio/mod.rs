@@ -129,3 +129,26 @@ pub fn new() -> anyhow::Result<(AudioEngine, AudioHandle)> {
     let input_device = host
         .default_input_device()
         .ok_or_else(|| anyhow::anyhow!("no default input (microphone) device"))?;
+    let output_device = host
+        .default_output_device()
+        .ok_or_else(|| anyhow::anyhow!("no default output (speaker) device"))?;
+
+    let input_config = input_device
+        .default_input_config()
+        .map_err(|e| anyhow::anyhow!("no default input config: {e}"))?;
+    let output_config = output_device
+        .default_output_config()
+        .map_err(|e| anyhow::anyhow!("no default output config: {e}"))?;
+
+    let output_rate = output_config.sample_rate();
+
+    let capture = CaptureRings::new(RAW_CAP, CAP16K_CAP);
+    let pb = PlaybackRings::new(PCM_CAP, TEE_CAP);
+
+    let level = capture.level.clone();
+    let play_state = pb.state.clone();
+
+    let handle = AudioHandle {
+        cap16k_cons: Arc::new(Mutex::new(capture.cap16k_cons)),
+        pcm_prod: Arc::new(Mutex::new(pb.pcm_prod)),
+        tee_cons: Arc::new(Mutex::new(pb.tee_cons)),
