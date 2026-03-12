@@ -106,3 +106,26 @@ pub struct AudioHandle {
     pcm_prod: Arc<Mutex<rtrb::Producer<f32>>>,
     /// Consumer for the output spectrum tee.
     tee_cons: Arc<Mutex<rtrb::Consumer<f32>>>,
+    /// Playback-rate resampler (Kokoro/other -> device rate), reused per call.
+    out_resampler: Arc<Mutex<Option<MonoResampler>>>,
+    /// Spectrum analyser state (256-pt FFT + 16 EMA bands).
+    analyzer: Arc<Mutex<SpectrumAnalyzer>>,
+    /// Device output sample rate (target for playback resampling).
+    output_rate: u32,
+    /// Shared mic level.
+    level: Arc<InputLevel>,
+    /// Shared playback state.
+    play_state: Arc<PlaybackState>,
+}
+
+/// Build the engine + handle pair.
+///
+/// Picks the default input/output devices and their default configs. The output
+/// stream will be opened at the **device default** sample rate (never assuming
+/// 24 kHz is accepted); TTS PCM is resampled to it. Returns an error if no
+/// default device is present.
+pub fn new() -> anyhow::Result<(AudioEngine, AudioHandle)> {
+    let host = cpal::default_host();
+    let input_device = host
+        .default_input_device()
+        .ok_or_else(|| anyhow::anyhow!("no default input (microphone) device"))?;
