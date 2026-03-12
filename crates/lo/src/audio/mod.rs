@@ -175,3 +175,26 @@ pub fn new() -> anyhow::Result<(AudioEngine, AudioHandle)> {
         output_stream: None,
         worker: None,
         worker_stop: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+    };
+
+    Ok((engine, handle))
+}
+
+impl AudioEngine {
+    /// Build and start the input and output streams and the capture resample
+    /// worker. Call once, on the owning thread. Idempotent: a second call after
+    /// success is a no-op.
+    pub fn start(&mut self) -> anyhow::Result<()> {
+        if self.input_stream.is_some() && self.output_stream.is_some() {
+            return Ok(());
+        }
+        self.start_output()?;
+        self.start_input()?;
+        Ok(())
+    }
+
+    /// Build + play the output stream at the device default rate.
+    fn start_output(&mut self) -> anyhow::Result<()> {
+        let sample_format = self.output_config.sample_format();
+        let channels = self.output_config.channels() as usize;
+        let mut config: StreamConfig = self.output_config.config();
