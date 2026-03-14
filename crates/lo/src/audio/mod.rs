@@ -244,3 +244,26 @@ impl AudioEngine {
                     }
                 },
                 err_fn,
+                None,
+            )?,
+            SampleFormat::U16 => device.build_output_stream_raw(
+                config,
+                SampleFormat::U16,
+                move |data: &mut Data, _| {
+                    let out = match data.as_slice_mut::<u16>() {
+                        Some(s) => s,
+                        None => return,
+                    };
+                    ensure_len(&mut scratch, out.len());
+                    fill_output(&mut scratch, channels, &mut pcm_cons, &mut tee_prod, &state);
+                    for (d, s) in out.iter_mut().zip(scratch.iter()) {
+                        *d = u16::from_sample(*s);
+                    }
+                },
+                err_fn,
+                None,
+            )?,
+            other => {
+                return Err(anyhow::anyhow!(
+                    "unsupported output sample format: {other:?}"
+                ));
