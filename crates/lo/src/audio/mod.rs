@@ -198,3 +198,26 @@ impl AudioEngine {
         let sample_format = self.output_config.sample_format();
         let channels = self.output_config.channels() as usize;
         let mut config: StreamConfig = self.output_config.config();
+        clamp_buffer_size(&mut config);
+
+        let mut pcm_cons = self
+            .pcm_cons
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("output already started"))?;
+        let mut tee_prod = self
+            .tee_prod
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("output already started"))?;
+        let state = self.play_state.clone();
+
+        // Scratch f32 block reused inside the callback (sized once on first
+        // call) so we never allocate in the RT path after warm-up.
+        let mut scratch: Vec<f32> = Vec::new();
+
+        let err_fn = |e| tracing::error!(target: "audio", "output stream error: {e}");
+
+        let device = &self.output_device;
+        let stream = match sample_format {
+            SampleFormat::F32 => device.build_output_stream_raw(
+                config,
+                SampleFormat::F32,
