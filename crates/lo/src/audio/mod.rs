@@ -221,3 +221,26 @@ impl AudioEngine {
             SampleFormat::F32 => device.build_output_stream_raw(
                 config,
                 SampleFormat::F32,
+                move |data: &mut Data, _| {
+                    if let Some(out) = data.as_slice_mut::<f32>() {
+                        fill_output(out, channels, &mut pcm_cons, &mut tee_prod, &state);
+                    }
+                },
+                err_fn,
+                None,
+            )?,
+            SampleFormat::I16 => device.build_output_stream_raw(
+                config,
+                SampleFormat::I16,
+                move |data: &mut Data, _| {
+                    let out = match data.as_slice_mut::<i16>() {
+                        Some(s) => s,
+                        None => return,
+                    };
+                    ensure_len(&mut scratch, out.len());
+                    fill_output(&mut scratch, channels, &mut pcm_cons, &mut tee_prod, &state);
+                    for (d, s) in out.iter_mut().zip(scratch.iter()) {
+                        *d = i16::from_sample(*s);
+                    }
+                },
+                err_fn,
