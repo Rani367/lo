@@ -290,3 +290,26 @@ impl AudioEngine {
 
         // Reusable mono downmix scratch for the callback (no alloc after warm-up).
         let mut mono: Vec<f32> = Vec::new();
+
+        let err_fn = |e| tracing::error!(target: "audio", "input stream error: {e}");
+
+        let device = &self.input_device;
+        let stream = match sample_format {
+            SampleFormat::F32 => device.build_input_stream_raw(
+                config,
+                SampleFormat::F32,
+                move |data: &Data, _| {
+                    if let Some(samples) = data.as_slice::<f32>() {
+                        capture_block(samples, channels, &mut mono, &mut raw_prod, &level, |s| s);
+                    }
+                },
+                err_fn,
+                None,
+            )?,
+            SampleFormat::I16 => device.build_input_stream_raw(
+                config,
+                SampleFormat::I16,
+                move |data: &Data, _| {
+                    if let Some(samples) = data.as_slice::<i16>() {
+                        capture_block(samples, channels, &mut mono, &mut raw_prod, &level, |s| {
+                            s.to_sample::<f32>()
