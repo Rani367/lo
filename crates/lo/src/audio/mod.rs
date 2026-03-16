@@ -267,3 +267,26 @@ impl AudioEngine {
                 return Err(anyhow::anyhow!(
                     "unsupported output sample format: {other:?}"
                 ));
+            }
+        };
+        stream.play()?;
+        self.output_stream = Some(stream);
+        Ok(())
+    }
+
+    /// Build + play the input stream and spawn the resample worker.
+    fn start_input(&mut self) -> anyhow::Result<()> {
+        let sample_format = self.input_config.sample_format();
+        let channels = self.input_config.channels() as usize;
+        let device_rate = self.input_config.sample_rate();
+        let mut config: StreamConfig = self.input_config.config();
+        clamp_buffer_size(&mut config);
+
+        let mut raw_prod = self
+            .raw_prod
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("input already started"))?;
+        let level = self.level.clone();
+
+        // Reusable mono downmix scratch for the callback (no alloc after warm-up).
+        let mut mono: Vec<f32> = Vec::new();
