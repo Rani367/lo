@@ -313,3 +313,26 @@ impl AudioEngine {
                     if let Some(samples) = data.as_slice::<i16>() {
                         capture_block(samples, channels, &mut mono, &mut raw_prod, &level, |s| {
                             s.to_sample::<f32>()
+                        });
+                    }
+                },
+                err_fn,
+                None,
+            )?,
+            SampleFormat::U16 => device.build_input_stream_raw(
+                config,
+                SampleFormat::U16,
+                move |data: &Data, _| {
+                    if let Some(samples) = data.as_slice::<u16>() {
+                        capture_block(samples, channels, &mut mono, &mut raw_prod, &level, |s| {
+                            s.to_sample::<f32>()
+                        });
+                    }
+                },
+                err_fn,
+                None,
+            )?,
+            other => {
+                return Err(anyhow::anyhow!(
+                    "unsupported input sample format: {other:?}"
+                ));
