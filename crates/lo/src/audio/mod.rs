@@ -336,3 +336,26 @@ impl AudioEngine {
                 return Err(anyhow::anyhow!(
                     "unsupported input sample format: {other:?}"
                 ));
+            }
+        };
+        stream.play()?;
+        self.input_stream = Some(stream);
+
+        // Spawn the capture resample worker (device rate -> 16 kHz).
+        let mut raw_cons = self
+            .raw_cons
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("input already started"))?;
+        let mut cap16k_prod = self
+            .cap16k_prod
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("input already started"))?;
+        let stop = self.worker_stop.clone();
+        self.worker = Some(std::thread::spawn(move || {
+            let mut resampler = match MonoResampler::new(device_rate, CAPTURE_RATE) {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!(target: "audio", "capture resampler init failed: {e}");
+                    return;
+                }
+            };
