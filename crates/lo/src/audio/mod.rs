@@ -359,3 +359,26 @@ impl AudioEngine {
                     return;
                 }
             };
+            let mut scratch_in: Vec<f32> = Vec::with_capacity(RAW_CAP);
+            let mut scratch_out: Vec<f32> = Vec::with_capacity(CAP16K_CAP);
+            while !stop.load(Ordering::Relaxed) {
+                let produced = pump_resample(
+                    &mut raw_cons,
+                    &mut cap16k_prod,
+                    &mut resampler,
+                    &mut scratch_in,
+                    &mut scratch_out,
+                );
+                if produced == 0 {
+                    // Idle poll cadence (~5 ms) — small enough that capture
+                    // latency stays well under one VAD frame.
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+        }));
+
+        Ok(())
+    }
+}
+
+impl Drop for AudioEngine {
