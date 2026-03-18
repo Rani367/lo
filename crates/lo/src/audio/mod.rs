@@ -405,3 +405,26 @@ impl AudioHandle {
         let n = cons.slots();
         if n == 0 {
             return;
+        }
+        if let Ok(chunk) = cons.read_chunk(n) {
+            let (a, b) = chunk.as_slices();
+            out.extend_from_slice(a);
+            out.extend_from_slice(b);
+            chunk.commit_all();
+        }
+    }
+
+    /// 0..1 smoothed microphone amplitude — `min(1, level*4)` over the EMA
+    /// `level = level*0.6 + rms*0.4`, matching `capture-vad.ts`.
+    pub fn input_level(&self) -> f32 {
+        self.level.level()
+    }
+
+    /// Resample `samples` (mono f32 at `sample_rate`) to the device output rate
+    /// and queue it for gapless playback. Kokoro PCM arrives at 24 kHz; any
+    /// rate is accepted. Resampling runs here (worker/caller thread), never in
+    /// the audio callback. Clearing the flush barrier first lets audio enqueued
+    /// after a barge-in play immediately.
+    pub fn enqueue_pcm(&self, samples: &[f32], sample_rate: u32) {
+        if samples.is_empty() {
+            return;
