@@ -451,3 +451,26 @@ impl AudioHandle {
         if need_new {
             match MonoResampler::new(sample_rate, self.output_rate) {
                 Ok(r) => *guard = Some(r),
+                Err(e) => {
+                    tracing::error!(target: "audio", "playback resampler init failed: {e}");
+                    *guard = None;
+                    drop(guard);
+                    // One-shot fallback so audio still plays.
+                    if let Ok(v) = resample_mono(samples, sample_rate, self.output_rate) {
+                        self.push_pcm(&v);
+                    }
+                    return;
+                }
+            }
+        }
+        let r = guard.as_mut().expect("resampler present after init");
+        let mut out = Vec::with_capacity(
+            (samples.len() as u64 * self.output_rate as u64 / sample_rate as u64) as usize + 1024,
+        );
+        r.process(samples, &mut out);
+        drop(guard);
+        self.push_pcm(&out);
+    }
+
+    /// Push device-rate mono f32 into the playback ring (best-effort; drops the
+    /// overflow tail if the ring is momentarily full). Updates the queued count.
