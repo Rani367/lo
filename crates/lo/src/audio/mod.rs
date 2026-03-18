@@ -382,3 +382,26 @@ impl AudioEngine {
 }
 
 impl Drop for AudioEngine {
+    fn drop(&mut self) {
+        // Stop the worker first so it stops touching the rings.
+        self.worker_stop.store(true, Ordering::Relaxed);
+        if let Some(w) = self.worker.take() {
+            let _ = w.join();
+        }
+        // Streams drop here on the owning thread (cpal requirement).
+        self.input_stream = None;
+        self.output_stream = None;
+    }
+}
+
+impl AudioHandle {
+    /// Move all currently-available 16 kHz mono f32 capture samples into `out`
+    /// (appended). Lock-free ring drain behind a mutex (worker-thread safe).
+    pub fn drain_capture_16k(&self, out: &mut Vec<f32>) {
+        let mut cons = match self.cap16k_cons.lock() {
+            Ok(c) => c,
+            Err(p) => p.into_inner(),
+        };
+        let n = cons.slots();
+        if n == 0 {
+            return;
