@@ -428,3 +428,26 @@ impl AudioHandle {
     pub fn enqueue_pcm(&self, samples: &[f32], sample_rate: u32) {
         if samples.is_empty() {
             return;
+        }
+        // A fresh enqueue after a stop should not be eaten by a stale flush.
+        self.play_state.flush.store(false, Ordering::Relaxed);
+
+        // Fast path: device already at the source rate, no resampling needed.
+        if sample_rate == self.output_rate {
+            self.push_pcm(samples);
+            return;
+        }
+
+        // Reuse a persistent resampler when the source rate is stable (Kokoro is
+        // always 24 kHz); rebuild only when the rate changes.
+        let mut guard = match self.out_resampler.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        let need_new = match guard.as_ref() {
+            Some(r) => r.from_rate() != sample_rate || r.to_rate() != self.output_rate,
+            None => true,
+        };
+        if need_new {
+            match MonoResampler::new(sample_rate, self.output_rate) {
+                Ok(r) => *guard = Some(r),
