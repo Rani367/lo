@@ -497,3 +497,26 @@ impl AudioHandle {
 
     /// Request instant barge-in: the output callback drops everything queued and
     /// emits silence until the ring is empty (then lifts the barrier itself).
+    pub fn stop_playback(&self) {
+        self.play_state.flush.store(true, Ordering::Relaxed);
+    }
+
+    /// True while speech is queued/playing (mirrors `playback.ts` isPlaying).
+    pub fn is_playing(&self) -> bool {
+        self.play_state.is_playing()
+    }
+
+    /// 16-band smoothed log spectrum of the output (256-pt Hann FFT, EMA 0.8) —
+    /// the native replacement for the Web Audio `AnalyserNode` that drove the
+    /// speaking orb. Consumes whatever the playback callback has teed since the
+    /// last call.
+    pub fn output_spectrum(&self) -> [f32; BANDS] {
+        // Drain the tee ring into a scratch buffer, then run the FFT.
+        let mut fresh: Vec<f32> = Vec::new();
+        {
+            let mut cons = match self.tee_cons.lock() {
+                Ok(c) => c,
+                Err(p) => p.into_inner(),
+            };
+            let n = cons.slots();
+            if n > 0 {
