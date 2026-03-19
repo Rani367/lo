@@ -474,3 +474,26 @@ impl AudioHandle {
 
     /// Push device-rate mono f32 into the playback ring (best-effort; drops the
     /// overflow tail if the ring is momentarily full). Updates the queued count.
+    fn push_pcm(&self, samples: &[f32]) {
+        if samples.is_empty() {
+            return;
+        }
+        let mut prod = match self.pcm_prod.lock() {
+            Ok(p) => p,
+            Err(p) => p.into_inner(),
+        };
+        let room = prod.slots();
+        let n = samples.len().min(room);
+        if n == 0 {
+            return;
+        }
+        if let Ok(chunk) = prod.write_chunk_uninit(n) {
+            chunk.fill_from_iter(samples[..n].iter().copied());
+            self.play_state
+                .queued
+                .fetch_add(n as u64, Ordering::Relaxed);
+        }
+    }
+
+    /// Request instant barge-in: the output callback drops everything queued and
+    /// emits silence until the ring is empty (then lifts the barrier itself).
