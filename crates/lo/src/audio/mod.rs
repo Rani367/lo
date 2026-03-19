@@ -520,3 +520,26 @@ impl AudioHandle {
             };
             let n = cons.slots();
             if n > 0 {
+                if let Ok(chunk) = cons.read_chunk(n) {
+                    let (a, b) = chunk.as_slices();
+                    fresh.extend_from_slice(a);
+                    fresh.extend_from_slice(b);
+                    chunk.commit_all();
+                }
+            }
+        }
+        let mut analyzer = match self.analyzer.lock() {
+            Ok(a) => a,
+            Err(p) => p.into_inner(),
+        };
+        analyzer.compute(&fresh)
+    }
+}
+
+/// RT-safe capture-block handler shared by the i16/u16/f32 input callbacks:
+/// down-mix interleaved `samples` (with `channels` channels) to mono via a
+/// reusable `mono` scratch, fold the block RMS into `level`, and push the mono
+/// block into the raw ring. `conv` converts the device sample type to f32.
+fn capture_block<T, F>(
+    samples: &[T],
+    channels: usize,
