@@ -543,3 +543,26 @@ impl AudioHandle {
 fn capture_block<T, F>(
     samples: &[T],
     channels: usize,
+    mono: &mut Vec<f32>,
+    raw_prod: &mut rtrb::Producer<f32>,
+    level: &InputLevel,
+    conv: F,
+) where
+    T: Copy,
+    F: Fn(T) -> f32,
+{
+    let channels = channels.max(1);
+    let frames = samples.len() / channels;
+    mono.clear();
+    mono.reserve(frames);
+    if channels == 1 {
+        for &s in samples {
+            mono.push(conv(s));
+        }
+    } else {
+        for frame in 0..frames {
+            let base = frame * channels;
+            let mut acc = 0.0f32;
+            for c in 0..channels {
+                acc += conv(samples[base + c]);
+            }
