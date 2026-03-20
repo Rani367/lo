@@ -566,3 +566,26 @@ fn capture_block<T, F>(
             for c in 0..channels {
                 acc += conv(samples[base + c]);
             }
+            mono.push(acc / channels as f32);
+        }
+    }
+    // Block RMS -> smoothed listening level (pure arithmetic, RT-safe).
+    level.push_block(&mono[..]);
+    // Push to the raw ring; drop the overflow tail rather than block.
+    let room = raw_prod.slots();
+    let n = mono.len().min(room);
+    if n > 0 {
+        if let Ok(chunk) = raw_prod.write_chunk_uninit(n) {
+            chunk.fill_from_iter(mono[..n].iter().copied());
+        }
+    }
+}
+
+/// Resize `buf` to exactly `len`, reusing capacity (RT-safe after first call
+/// once the capacity is reached).
+fn ensure_len(buf: &mut Vec<f32>, len: usize) {
+    if buf.len() != len {
+        buf.resize(len, 0.0);
+    }
+}
+
