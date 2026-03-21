@@ -612,3 +612,26 @@ mod tests {
     use crate::audio::capture::InputLevel;
     use crate::audio::playback::{fill_output, PlaybackRings};
     use crate::audio::resample::{resample_mono, MonoResampler};
+    use crate::audio::spectrum::SpectrumAnalyzer;
+
+    #[test]
+    fn level_matches_capture_vad_ema() {
+        // Reproduce capture-vad.ts: level = level*0.6 + rms*0.4, exposed as
+        // min(1, level*4). Feed a constant-amplitude block; the level rises
+        // monotonically toward rms and saturates the exposed value at 1.
+        let lvl = InputLevel::new();
+        let block = vec![0.5f32; 512];
+        let rms = 0.5f32; // RMS of a constant 0.5 signal.
+        let mut expected = 0.0f32;
+        for _ in 0..50 {
+            lvl.push_block(&block);
+            expected = expected * 0.6 + rms * 0.4;
+        }
+        // The exposed value is min(1, level*4): with rms 0.5 it saturates at 1.
+        assert!((lvl.level() - (expected * 4.0).min(1.0)).abs() < 1e-4);
+    }
+
+    #[test]
+    fn silence_is_zero_level() {
+        let lvl = InputLevel::new();
+        lvl.push_block(&[0.0f32; 256]);
