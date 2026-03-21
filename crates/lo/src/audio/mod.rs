@@ -589,3 +589,26 @@ fn ensure_len(buf: &mut Vec<f32>, len: usize) {
     }
 }
 
+/// Clamp a pathological driver-reported fixed buffer size into a sane range.
+fn clamp_buffer_size(config: &mut StreamConfig) {
+    if let cpal::BufferSize::Fixed(frames) = config.buffer_size {
+        let clamped = frames.clamp(MIN_BLOCK, MAX_BLOCK);
+        config.buffer_size = cpal::BufferSize::Fixed(clamped);
+    }
+    // The sample rate is whatever the device default reported; we never assume a
+    // specific rate, so it is left untouched.
+}
+
+/// Compile-time assertions that the handle is `Send + Sync + Clone` and the
+/// engine is intentionally *not* `Send`.
+#[allow(dead_code)]
+fn _assert_traits() {
+    fn is_send_sync_clone<T: Send + Sync + Clone>() {}
+    is_send_sync_clone::<AudioHandle>();
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::audio::capture::InputLevel;
+    use crate::audio::playback::{fill_output, PlaybackRings};
+    use crate::audio::resample::{resample_mono, MonoResampler};
