@@ -681,3 +681,26 @@ mod tests {
         // frames (EMA ramp).
         let tone: Vec<f32> = (0..512).map(|n| (n as f32 * 0.2).sin() * 0.9).collect();
         let mut peak = 0.0f32;
+        for _ in 0..20 {
+            let b = sa.compute(&tone);
+            peak = peak.max(b.iter().cloned().fold(0.0, f32::max));
+        }
+        assert!(peak > 0.0);
+        assert!(bands.iter().all(|&b| (0.0..=1.0).contains(&b)));
+    }
+
+    #[test]
+    fn fill_output_silence_on_empty_ring() {
+        let mut pb = PlaybackRings::new(1024, 1024);
+        let mut out = vec![1.0f32; 64]; // stereo: 32 frames, 2 ch
+        fill_output(&mut out, 2, &mut pb.pcm_cons, &mut pb.tee_prod, &pb.state);
+        assert!(out.iter().all(|&s| s == 0.0), "underrun must be silence");
+    }
+
+    #[test]
+    fn fill_output_duplicates_mono_across_channels() {
+        let mut pb = PlaybackRings::new(1024, 1024);
+        // Queue 4 mono samples.
+        {
+            let chunk = pb.pcm_prod.write_chunk_uninit(4).unwrap();
+            chunk.fill_from_iter([0.1f32, 0.2, 0.3, 0.4]);
