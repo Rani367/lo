@@ -658,3 +658,26 @@ mod tests {
     fn streaming_resampler_accepts_arbitrary_chunks() {
         let mut r = MonoResampler::new(44_100, 16_000).expect("resampler");
         let mut out = Vec::new();
+        // Feed in odd-sized pieces; the resampler buffers leftovers internally.
+        for chunk in [100usize, 333, 777, 50, 4096] {
+            let piece = vec![0.0f32; chunk];
+            r.process(&piece, &mut out);
+        }
+        r.flush(&mut out);
+        // Downsampling 44.1k -> 16k should produce fewer samples than fed in.
+        let fed = 100 + 333 + 777 + 50 + 4096;
+        assert!(out.len() < fed);
+        assert!(!out.is_empty());
+    }
+
+    #[test]
+    fn spectrum_is_16_bands_and_smooths() {
+        let mut sa = SpectrumAnalyzer::new();
+        // Silence -> all-zero bands.
+        let bands = sa.compute(&[0.0f32; 256]);
+        assert_eq!(bands.len(), 16);
+        assert!(bands.iter().all(|&b| b == 0.0));
+        // A loud tone-ish burst should raise at least one band over repeated
+        // frames (EMA ramp).
+        let tone: Vec<f32> = (0..512).map(|n| (n as f32 * 0.2).sin() * 0.9).collect();
+        let mut peak = 0.0f32;
