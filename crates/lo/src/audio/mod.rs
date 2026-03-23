@@ -635,3 +635,26 @@ mod tests {
     fn silence_is_zero_level() {
         let lvl = InputLevel::new();
         lvl.push_block(&[0.0f32; 256]);
+        assert_eq!(lvl.level(), 0.0);
+    }
+
+    #[test]
+    fn resample_24k_to_48k_roughly_doubles() {
+        // Kokoro 24 kHz -> a 48 kHz device should roughly double the frame count.
+        let input = vec![0.0f32; 2400]; // 0.1 s @ 24 kHz
+        let out = resample_mono(&input, 24_000, 48_000).expect("resample");
+        let ratio = out.len() as f64 / input.len() as f64;
+        assert!(ratio > 1.6 && ratio < 2.4, "ratio was {ratio}");
+    }
+
+    #[test]
+    fn resample_identity_when_rates_match() {
+        let input = vec![0.1, 0.2, 0.3, 0.4];
+        let out = resample_mono(&input, 16_000, 16_000).expect("resample");
+        assert_eq!(out, input);
+    }
+
+    #[test]
+    fn streaming_resampler_accepts_arbitrary_chunks() {
+        let mut r = MonoResampler::new(44_100, 16_000).expect("resampler");
+        let mut out = Vec::new();
