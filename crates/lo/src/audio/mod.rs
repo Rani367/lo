@@ -704,3 +704,26 @@ mod tests {
         {
             let chunk = pb.pcm_prod.write_chunk_uninit(4).unwrap();
             chunk.fill_from_iter([0.1f32, 0.2, 0.3, 0.4]);
+        }
+        pb.state
+            .queued
+            .store(4, std::sync::atomic::Ordering::Relaxed);
+        let mut out = vec![0.0f32; 8]; // 4 frames x 2 ch
+        fill_output(&mut out, 2, &mut pb.pcm_cons, &mut pb.tee_prod, &pb.state);
+        // Each mono sample duplicated across both channels.
+        assert_eq!(out, vec![0.1, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4, 0.4]);
+    }
+
+    #[test]
+    fn flush_drops_queue_and_emits_silence() {
+        let mut pb = PlaybackRings::new(1024, 1024);
+        {
+            let chunk = pb.pcm_prod.write_chunk_uninit(8).unwrap();
+            chunk.fill_from_iter([0.5f32; 8]);
+        }
+        pb.state
+            .queued
+            .store(8, std::sync::atomic::Ordering::Relaxed);
+        pb.state
+            .flush
+            .store(true, std::sync::atomic::Ordering::Relaxed);
