@@ -33,3 +33,26 @@ pub struct PlaybackState {
     /// Number of audio samples currently sitting in the playback ring, kept in
     /// sync by the enqueue path and the output callback.
     pub queued: AtomicU64,
+}
+
+impl PlaybackState {
+    /// Fresh, idle state.
+    pub fn new() -> Self {
+        Self {
+            flush: AtomicBool::new(false),
+            played: AtomicU64::new(0),
+            queued: AtomicU64::new(0),
+        }
+    }
+
+    /// True while audio is queued or the flush barrier is still draining.
+    pub fn is_playing(&self) -> bool {
+        self.queued.load(Ordering::Relaxed) > 0 && !self.flush.load(Ordering::Relaxed)
+    }
+}
+
+impl Default for PlaybackState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
