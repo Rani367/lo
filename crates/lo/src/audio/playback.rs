@@ -56,3 +56,26 @@ impl Default for PlaybackState {
         Self::new()
     }
 }
+
+/// Producer/consumer halves of the playback path.
+///
+/// `pcm_*` carries device-rate mono f32 to the output callback; `tee_*` carries
+/// a copy of what the callback emitted, for the spectrum analyser.
+pub struct PlaybackRings {
+    /// Device-rate mono f32, written by `enqueue_pcm`, read by the output cb.
+    pub pcm_prod: Producer<f32>,
+    pub pcm_cons: Consumer<f32>,
+    /// Tee of emitted output samples, read by the spectrum analyser.
+    pub tee_prod: Producer<f32>,
+    pub tee_cons: Consumer<f32>,
+    /// Shared play/flush state.
+    pub state: Arc<PlaybackState>,
+}
+
+impl PlaybackRings {
+    /// Allocate the playback rings (capacities in samples).
+    pub fn new(pcm_capacity: usize, tee_capacity: usize) -> Self {
+        let (pcm_prod, pcm_cons) = RingBuffer::<f32>::new(pcm_capacity);
+        let (tee_prod, tee_cons) = RingBuffer::<f32>::new(tee_capacity);
+        Self {
+            pcm_prod,
