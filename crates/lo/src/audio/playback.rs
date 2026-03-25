@@ -125,3 +125,26 @@ pub fn fill_output(
     }
 
     let avail = pcm_cons.slots();
+    let take = avail.min(frames);
+    let mut emitted = 0usize;
+
+    if take > 0 {
+        if let Ok(chunk) = pcm_cons.read_chunk(take) {
+            let (a, b) = chunk.as_slices();
+            let mut src = a.iter().chain(b.iter());
+            for frame in 0..take {
+                let mono = *src.next().unwrap_or(&0.0);
+                let base = frame * channels;
+                for c in 0..channels {
+                    out[base + c] = mono;
+                }
+            }
+            chunk.commit_all();
+            emitted = take;
+        }
+    }
+
+    // Underrun → silence for the remaining frames (gapless: queued chunks just
+    // resume on the next callback).
+    if emitted < frames {
+        let base = emitted * channels;
