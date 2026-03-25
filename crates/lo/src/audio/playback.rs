@@ -102,3 +102,26 @@ pub fn fill_output(
     channels: usize,
     pcm_cons: &mut Consumer<f32>,
     tee_prod: &mut Producer<f32>,
+    state: &PlaybackState,
+) {
+    let channels = channels.max(1);
+    let frames = out.len() / channels;
+
+    // Barge-in: drop everything queued and emit silence this block.
+    if state.flush.load(Ordering::Relaxed) {
+        let drop_n = pcm_cons.slots();
+        if drop_n > 0 {
+            if let Ok(chunk) = pcm_cons.read_chunk(drop_n) {
+                chunk.commit_all();
+            }
+        }
+        state.queued.store(0, Ordering::Relaxed);
+        for s in out.iter_mut() {
+            *s = 0.0;
+        }
+        // Ring is now empty; lift the barrier so subsequent enqueues play.
+        state.flush.store(false, Ordering::Relaxed);
+        return;
+    }
+
+    let avail = pcm_cons.slots();
