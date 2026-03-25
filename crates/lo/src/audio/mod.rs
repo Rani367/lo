@@ -727,3 +727,14 @@ mod tests {
         pb.state
             .flush
             .store(true, std::sync::atomic::Ordering::Relaxed);
+        let mut out = vec![9.0f32; 8];
+        fill_output(&mut out, 1, &mut pb.pcm_cons, &mut pb.tee_prod, &pb.state);
+        assert!(out.iter().all(|&s| s == 0.0));
+        assert_eq!(
+            pb.state.queued.load(std::sync::atomic::Ordering::Relaxed),
+            0
+        );
+        // Barrier lifts itself once the ring is drained.
+        assert!(!pb.state.flush.load(std::sync::atomic::Ordering::Relaxed));
+    }
+}
