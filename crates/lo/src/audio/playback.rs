@@ -79,3 +79,26 @@ impl PlaybackRings {
         let (tee_prod, tee_cons) = RingBuffer::<f32>::new(tee_capacity);
         Self {
             pcm_prod,
+            pcm_cons,
+            tee_prod,
+            tee_cons,
+            state: Arc::new(PlaybackState::new()),
+        }
+    }
+}
+
+/// RT-safe output-callback body for **one** output channel-frame block.
+///
+/// Fills `out` (already deinterleaved to a per-channel write helper by the
+/// caller via `channels`) by popping mono samples from `pcm_cons`, duplicating
+/// each mono sample across `channels`, writing silence on underrun, and teeing
+/// the emitted mono stream into `tee_prod`. Honours the flush barrier for
+/// instant barge-in (drops queued audio, emits silence).
+///
+/// `out` length must be `frames * channels`. Pure ring/atomic work — no alloc,
+/// no locks, no DSP.
+pub fn fill_output(
+    out: &mut [f32],
+    channels: usize,
+    pcm_cons: &mut Consumer<f32>,
+    tee_prod: &mut Producer<f32>,
