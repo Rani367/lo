@@ -148,3 +148,26 @@ pub fn fill_output(
     // resume on the next callback).
     if emitted < frames {
         let base = emitted * channels;
+        for s in out[base..].iter_mut() {
+            *s = 0.0;
+        }
+    }
+
+    // Tee the mono stream we just emitted (channel 0 of each emitted frame) so
+    // the spectrum analyser sees exactly what played. Best-effort; drop on
+    // overflow.
+    if emitted > 0 {
+        let room = tee_prod.slots();
+        let n = emitted.min(room);
+        push_tee(tee_prod, out, channels, n);
+    }
+
+    // Bookkeeping.
+    state.played.fetch_add(emitted as u64, Ordering::Relaxed);
+    let q = state.queued.load(Ordering::Relaxed);
+    state
+        .queued
+        .store(q.saturating_sub(emitted as u64), Ordering::Relaxed);
+}
+
+/// Push `n` mono samples (channel 0 of each emitted frame) into the tee ring.
