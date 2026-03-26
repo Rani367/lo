@@ -171,3 +171,11 @@ pub fn fill_output(
 }
 
 /// Push `n` mono samples (channel 0 of each emitted frame) into the tee ring.
+fn push_tee(tee_prod: &mut Producer<f32>, out: &[f32], channels: usize, n: usize) {
+    if n == 0 {
+        return;
+    }
+    if let Ok(chunk) = tee_prod.write_chunk_uninit(n) {
+        chunk.fill_from_iter((0..n).map(|f| out[f * channels]));
+    }
+}
