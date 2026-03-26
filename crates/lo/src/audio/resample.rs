@@ -59,3 +59,26 @@ impl MonoResampler {
             chunk: CHUNK,
             out_scratch: Vec::new(),
         })
+    }
+
+    /// Source sample rate this resampler was built for.
+    #[allow(clippy::wrong_self_convention)] // `from_rate` is a getter, not a constructor
+    pub fn from_rate(&self) -> u32 {
+        self.from_rate
+    }
+
+    /// Destination sample rate this resampler was built for.
+    pub fn to_rate(&self) -> u32 {
+        self.to_rate
+    }
+
+    /// Resample `input` (mono f32 at `from_rate`), appending the produced
+    /// samples (mono f32 at `to_rate`) to `out`. Any input frames that do not
+    /// fill a complete processing chunk are retained internally and consumed on
+    /// the next call, so feeding the stream in arbitrary-sized pieces is safe.
+    pub fn process(&mut self, input: &[f32], out: &mut Vec<f32>) {
+        self.pending.extend_from_slice(input);
+        // The fixed-input resampler may want a different number of frames per
+        // call after a ratio change; for our fixed ratio it stays at `chunk`,
+        // but we honour `input_frames_next` defensively.
+        loop {
