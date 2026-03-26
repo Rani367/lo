@@ -36,3 +36,26 @@ pub struct MonoResampler {
 /// keep latency low, large enough to amortise the sinc filter cost.
 const CHUNK: usize = 1024;
 
+impl MonoResampler {
+    /// Build a mono resampler from `from_rate` to `to_rate` (both in Hz).
+    pub fn new(from_rate: u32, to_rate: u32) -> anyhow::Result<Self> {
+        let params = SincInterpolationParameters {
+            sinc_len: 256,
+            f_cutoff: 0.95,
+            oversampling_factor: 128,
+            interpolation: SincInterpolationType::Linear,
+            window: WindowFunction::Hann,
+        };
+        let ratio = to_rate as f64 / from_rate as f64;
+        // `max_resample_ratio_relative` = 1.0: we never change the ratio at
+        // runtime (rate pairs are fixed for a stream's lifetime).
+        let inner = Async::<f32>::new_sinc(ratio, 1.0, &params, CHUNK, 1, FixedAsync::Input)
+            .map_err(|e| anyhow::anyhow!("rubato construction failed: {e}"))?;
+        Ok(Self {
+            inner,
+            from_rate,
+            to_rate,
+            pending: Vec::with_capacity(CHUNK * 2),
+            chunk: CHUNK,
+            out_scratch: Vec::new(),
+        })
