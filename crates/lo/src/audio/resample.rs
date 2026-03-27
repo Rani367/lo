@@ -82,3 +82,26 @@ impl MonoResampler {
         // call after a ratio change; for our fixed ratio it stays at `chunk`,
         // but we honour `input_frames_next` defensively.
         loop {
+            let need = self.inner.input_frames_next().max(1);
+            if self.pending.len() < need {
+                break;
+            }
+            self.process_one(need, out);
+        }
+    }
+
+    /// Flush any buffered input by zero-padding the final partial chunk, so
+    /// trailing audio is not lost at end-of-stream. Only the output frames that
+    /// correspond to the *real* (unpadded) leftover input are kept — the padding
+    /// silence is discarded — so the total output length stays ≈ input·ratio (no
+    /// spurious trailing silence). Resets internal state after flushing so the
+    /// instance can be reused.
+    pub fn flush(&mut self, out: &mut Vec<f32>) {
+        if !self.pending.is_empty() {
+            let real = self.pending.len();
+            let need = self.inner.input_frames_next().max(1);
+            if self.pending.len() < need {
+                self.pending.resize(need, 0.0);
+            }
+            let mut tail = Vec::new();
+            self.process_one(need, &mut tail);
