@@ -128,3 +128,26 @@ impl MonoResampler {
                 let frames = produced.frames();
                 self.out_scratch.clear();
                 self.out_scratch.reserve(frames);
+                for f in 0..frames {
+                    self.out_scratch
+                        .push(produced.read_sample(0, f).unwrap_or(0.0));
+                }
+                out.extend_from_slice(&self.out_scratch);
+            }
+            Err(_) => {
+                // On a transient processing error, drop this block rather than
+                // poison the stream.
+            }
+        }
+    }
+}
+
+/// One-shot mono resample of a fully-buffered clip (e.g. a complete Kokoro TTS
+/// chunk). Builds a fresh resampler, processes, and flushes the tail. Returns
+/// `input` cloned unchanged when the rates already match.
+pub fn resample_mono(input: &[f32], from_rate: u32, to_rate: u32) -> anyhow::Result<Vec<f32>> {
+    if from_rate == to_rate {
+        return Ok(input.to_vec());
+    }
+    let mut r = MonoResampler::new(from_rate, to_rate)?;
+    let mut out = Vec::with_capacity(
