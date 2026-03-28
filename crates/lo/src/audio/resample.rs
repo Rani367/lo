@@ -151,3 +151,9 @@ pub fn resample_mono(input: &[f32], from_rate: u32, to_rate: u32) -> anyhow::Res
     }
     let mut r = MonoResampler::new(from_rate, to_rate)?;
     let mut out = Vec::with_capacity(
+        (input.len() as u64 * to_rate as u64 / from_rate as u64) as usize + CHUNK,
+    );
+    r.process(input, &mut out);
+    r.flush(&mut out);
+    Ok(out)
+}
