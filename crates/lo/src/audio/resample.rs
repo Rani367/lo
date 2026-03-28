@@ -105,3 +105,26 @@ impl MonoResampler {
             }
             let mut tail = Vec::new();
             self.process_one(need, &mut tail);
+            let ratio = self.to_rate as f64 / self.from_rate as f64;
+            let keep = (((real as f64) * ratio).round() as usize).min(tail.len());
+            out.extend_from_slice(&tail[..keep]);
+        }
+        self.pending.clear();
+        self.inner.reset();
+    }
+
+    /// Process exactly `need` input frames from `pending` into `out`.
+    fn process_one(&mut self, need: usize, out: &mut Vec<f32>) {
+        let take = need.min(self.pending.len());
+        // SequentialSlice wants a `&[f32]` of length channels*frames; mono so
+        // exactly `take` frames.
+        let input_block: Vec<f32> = self.pending.drain(..take).collect();
+        let adapter = match SequentialSlice::new(&input_block[..], 1, take) {
+            Ok(a) => a,
+            Err(_) => return,
+        };
+        match self.inner.process(&adapter, 0, None) {
+            Ok(produced) => {
+                let frames = produced.frames();
+                self.out_scratch.clear();
+                self.out_scratch.reserve(frames);
