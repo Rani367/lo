@@ -84,3 +84,26 @@ impl SpectrumAnalyzer {
         for i in 0..FFT_SIZE {
             self.scratch[i] = Complex {
                 re: self.history[i] * self.window[i],
+                im: 0.0,
+            };
+        }
+        self.fft.process(&mut self.scratch);
+
+        // Only the first FFT_SIZE/2 bins carry unique real-input information.
+        let half = FFT_SIZE / 2;
+        // Normalise magnitudes by the window's coherent gain (~N/2 for Hann)
+        // and map into a 0..1 range comparable to the byte spectrum the orb
+        // shader originally consumed.
+        let norm = 1.0 / (half as f32);
+        for b in 0..BANDS {
+            // Logarithmic band edges across [1, half).
+            let lo = band_edge(b, half);
+            let hi = band_edge(b + 1, half).max(lo + 1);
+            let mut acc = 0.0f32;
+            let mut count = 0u32;
+            for k in lo..hi {
+                let c = self.scratch[k];
+                acc += (c.re * c.re + c.im * c.im).sqrt();
+                count += 1;
+            }
+            let mag = if count > 0 {
