@@ -61,3 +61,26 @@ impl SpectrumAnalyzer {
     pub fn compute(&mut self, fresh: &[f32]) -> [f32; BANDS] {
         self.push_history(fresh);
         self.transform();
+        self.bands
+    }
+
+    /// Slide `fresh` into the rolling history window (keep the last FFT_SIZE).
+    fn push_history(&mut self, fresh: &[f32]) {
+        if fresh.is_empty() {
+            return;
+        }
+        if fresh.len() >= FFT_SIZE {
+            self.history
+                .copy_from_slice(&fresh[fresh.len() - FFT_SIZE..]);
+        } else {
+            let keep = FFT_SIZE - fresh.len();
+            self.history.copy_within(FFT_SIZE - keep.., 0);
+            self.history[keep..].copy_from_slice(fresh);
+        }
+    }
+
+    /// Run the windowed FFT over the history window and fold into bands.
+    fn transform(&mut self) {
+        for i in 0..FFT_SIZE {
+            self.scratch[i] = Complex {
+                re: self.history[i] * self.window[i],
