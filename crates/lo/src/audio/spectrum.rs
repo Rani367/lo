@@ -38,3 +38,26 @@ pub struct SpectrumAnalyzer {
 impl SpectrumAnalyzer {
     /// Build a fresh analyser with a planned 256-point forward FFT.
     pub fn new() -> Self {
+        let mut planner = FftPlanner::<f32>::new();
+        let fft = planner.plan_fft_forward(FFT_SIZE);
+        let window = (0..FFT_SIZE)
+            .map(|n| 0.5 - 0.5 * (2.0 * PI * n as f32 / (FFT_SIZE as f32 - 1.0)).cos())
+            .collect();
+        Self {
+            fft,
+            window,
+            scratch: vec![Complex { re: 0.0, im: 0.0 }; FFT_SIZE],
+            history: vec![0.0; FFT_SIZE],
+            bands: [0.0; BANDS],
+        }
+    }
+
+    /// Feed the latest output samples and return the smoothed 16-band spectrum.
+    ///
+    /// `fresh` is whatever was teed off the playback stream since the last call
+    /// (may be empty, shorter than, or longer than [`FFT_SIZE`]). The analyser
+    /// keeps a rolling [`FFT_SIZE`]-sample history so it always has a full frame
+    /// to transform.
+    pub fn compute(&mut self, fresh: &[f32]) -> [f32; BANDS] {
+        self.push_history(fresh);
+        self.transform();
