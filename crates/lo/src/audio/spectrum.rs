@@ -107,3 +107,26 @@ impl SpectrumAnalyzer {
                 count += 1;
             }
             let mag = if count > 0 {
+                (acc / count as f32) * norm
+            } else {
+                0.0
+            };
+            let level = mag.min(1.0);
+            // EMA: new = old*0.8 + level*0.2 (browser AnalyserNode convention,
+            // where smoothingTimeConstant weights the *previous* value).
+            self.bands[b] = self.bands[b] * SMOOTHING + level * (1.0 - SMOOTHING);
+        }
+    }
+}
+
+impl Default for SpectrumAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Logarithmically-spaced band edge `b` (of `BANDS`) over bins `[1, half]`.
+fn band_edge(b: usize, half: usize) -> usize {
+    let frac = b as f32 / BANDS as f32;
+    // Map [0,1] -> [1, half] on a log scale.
+    let lo = 1.0f32;
