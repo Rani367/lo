@@ -130,3 +130,7 @@ fn band_edge(b: usize, half: usize) -> usize {
     let frac = b as f32 / BANDS as f32;
     // Map [0,1] -> [1, half] on a log scale.
     let lo = 1.0f32;
+    let hi = half as f32;
+    let edge = lo * (hi / lo).powf(frac);
+    (edge.round() as usize).clamp(1, half)
+}
