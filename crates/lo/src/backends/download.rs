@@ -86,3 +86,26 @@ pub async fn download_file(
     }
 }
 
+async fn download_file_inner(
+    url: &str,
+    part: &Path,
+    label: &str,
+    progress: Progress<'_>,
+) -> anyhow::Result<()> {
+    let client = http_client()?;
+    let res = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("requesting {url}"))?;
+    if !res.status().is_success() {
+        return Err(anyhow!(
+            "Download failed ({}) for {url}",
+            res.status().as_u16()
+        ));
+    }
+
+    let total = res.content_length().unwrap_or(0);
+    let mut received: u64 = 0;
+    let mut last_pct: i32 = -1;
+
