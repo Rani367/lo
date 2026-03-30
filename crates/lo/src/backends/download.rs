@@ -109,3 +109,26 @@ async fn download_file_inner(
     let mut received: u64 = 0;
     let mut last_pct: i32 = -1;
 
+    let mut out = tokio::fs::File::create(part)
+        .await
+        .with_context(|| format!("creating {}", part.display()))?;
+
+    let mut stream = res.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("error reading download stream")?;
+        out.write_all(&chunk)
+            .await
+            .with_context(|| format!("writing {}", part.display()))?;
+        received += chunk.len() as u64;
+        if total > 0 {
+            let pct = ((received as f64 / total as f64) * 100.0).round() as i32;
+            if pct != last_pct {
+                last_pct = pct;
+                report(progress, label, Some(pct.clamp(0, 100) as u8));
+            }
+        } else {
+            report(progress, label, None);
+        }
+    }
+    out.flush().await.ok();
+    Ok(())
