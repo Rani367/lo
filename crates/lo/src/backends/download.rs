@@ -132,3 +132,26 @@ async fn download_file_inner(
     }
     out.flush().await.ok();
     Ok(())
+}
+
+/* ---------------- llama-server binary ---------------- */
+
+/// Resolve the download URL + asset name for the llama-server release for this
+/// host (mirrors `resolveLlamaAssetUrl`). Honors `LO_LLAMA_RELEASE_URL`,
+/// `LO_LLAMA_RELEASE_TAG`, and `LO_LLAMA_VARIANT`.
+async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
+    if let Some(explicit) = env_trimmed("LO_LLAMA_RELEASE_URL") {
+        // Derive a leaf name from the URL path.
+        let name = explicit
+            .rsplit('/')
+            .next()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("llama-release.zip")
+            .split('?')
+            .next()
+            .unwrap_or("llama-release.zip")
+            .to_string();
+        return Ok((explicit, name));
+    }
+
+    let tag = env_trimmed("LO_LLAMA_RELEASE_TAG");
