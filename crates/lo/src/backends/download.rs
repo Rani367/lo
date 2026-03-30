@@ -63,3 +63,26 @@ pub async fn download_file(
     label: &str,
     progress: Progress<'_>,
 ) -> anyhow::Result<()> {
+    if let Some(parent) = dest.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let part = with_extension_suffix(dest, "part");
+
+    let result = download_file_inner(url, &part, label, progress).await;
+    match result {
+        Ok(()) => {
+            tokio::fs::rename(&part, dest)
+                .await
+                .with_context(|| format!("renaming {} → {}", part.display(), dest.display()))?;
+            Ok(())
+        }
+        Err(err) => {
+            // Never leave a half-written `.part` to be mistaken for complete.
+            let _ = tokio::fs::remove_file(&part).await;
+            Err(err)
+        }
+    }
+}
+
