@@ -40,3 +40,26 @@ struct ReleaseBody {
     assets: Vec<ReleaseAsset>,
 }
 
+fn env_trimmed(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// A tiny shared HTTP client for the download/API requests.
+fn http_client() -> anyhow::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .user_agent("Lo")
+        .build()
+        .context("failed to build download HTTP client")
+}
+
+/// Stream a URL to `dest` atomically (`.part` → rename), reporting 0–100% when a
+/// content-length is known. Mirrors `downloadFile`.
+pub async fn download_file(
+    url: &str,
+    dest: &Path,
+    label: &str,
+    progress: Progress<'_>,
+) -> anyhow::Result<()> {
