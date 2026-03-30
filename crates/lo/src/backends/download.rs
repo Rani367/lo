@@ -17,3 +17,26 @@ use lo_core::backends::models::gguf_ref_for_model;
 use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
+/// Progress callback: `(label, pct)` where `pct` is `None` for an indeterminate
+/// phase. Matches the `Progress` alias in the TS.
+pub type Progress<'a> = Option<&'a (dyn Fn(&str, Option<u8>) + Send + Sync)>;
+
+fn report(progress: Progress, label: &str, pct: Option<u8>) {
+    if let Some(cb) = progress {
+        cb(label, pct);
+    }
+}
+
+/// One asset in a GitHub release.
+#[derive(Debug, Deserialize)]
+struct ReleaseAsset {
+    name: String,
+    browser_download_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReleaseBody {
+    #[serde(default)]
+    assets: Vec<ReleaseAsset>,
+}
+
