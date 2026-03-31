@@ -178,3 +178,26 @@ async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
         .await
         .context("parsing llama.cpp releases JSON")?;
 
+    let variant = env_trimmed("LO_LLAMA_VARIANT").unwrap_or_else(|| "cpu".to_string());
+    let names: Vec<String> = body.assets.iter().map(|a| a.name.clone()).collect();
+    let name = match_llama_asset(&names, HostTarget::current(&variant));
+
+    let asset = name
+        .as_ref()
+        .and_then(|n| body.assets.iter().find(|a| &a.name == n));
+
+    match asset {
+        Some(a) => Ok((a.browser_download_url.clone(), a.name.clone())),
+        None => Err(anyhow!(
+            "No matching llama-server build for {}/{}. Set LO_LLAMA_BIN to an existing binary, or install Ollama.",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        )),
+    }
+}
+
+/// Ensure the `llama-server` binary exists at `dest`, downloading + extracting if
+/// missing. Co-locates sibling shared libraries and swaps the whole directory
+/// into place atomically (mirrors `ensureLlamaBinary`).
+pub async fn ensure_llama_binary(dest: &Path, progress: Progress<'_>) -> anyhow::Result<()> {
+    if dest.exists() {
