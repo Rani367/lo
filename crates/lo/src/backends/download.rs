@@ -155,3 +155,26 @@ async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
     }
 
     let tag = env_trimmed("LO_LLAMA_RELEASE_TAG");
+    let api = match &tag {
+        Some(t) => format!("https://api.github.com/repos/{LLAMA_REPO}/releases/tags/{t}"),
+        None => format!("https://api.github.com/repos/{LLAMA_REPO}/releases/latest"),
+    };
+
+    let client = http_client()?;
+    let res = client
+        .get(&api)
+        .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+        .send()
+        .await
+        .with_context(|| format!("querying {api}"))?;
+    if !res.status().is_success() {
+        return Err(anyhow!(
+            "Could not query llama.cpp releases ({}).",
+            res.status().as_u16()
+        ));
+    }
+    let body: ReleaseBody = res
+        .json()
+        .await
+        .context("parsing llama.cpp releases JSON")?;
+
