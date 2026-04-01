@@ -224,3 +224,26 @@ async fn ensure_llama_binary_inner(
     let archive_name = if name.to_lowercase().ends_with(".zip") {
         name.to_string()
     } else {
+        format!("{name}.zip")
+    };
+    let archive = tmp.join(&archive_name);
+    download_file(url, &archive, "ENGINE", progress).await?;
+
+    let unpack = tmp.join("unpacked");
+    let exe = exe_name();
+
+    // Extraction is blocking (zip + std::fs) — run it off the async runtime.
+    let archive_b = archive.clone();
+    let unpack_b = unpack.clone();
+    let exe_b = exe.to_string();
+    let found: PathBuf =
+        tokio::task::spawn_blocking(move || extract_and_find(&archive_b, &unpack_b, &exe_b))
+            .await
+            .context("zip extraction task panicked")??;
+
+    // Co-locate the binary with its sibling shared libraries, then swap the whole
+    // directory into place atomically — a crash mid-copy can't leave a partial
+    // engine that `dest.exists()` would later treat as complete.
+    let dest_dir = dest
+        .parent()
+        .ok_or_else(|| anyhow!("destination {} has no parent dir", dest.display()))?
