@@ -339,3 +339,26 @@ fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
                 return Some(hit);
             }
         } else if entry.file_name().to_string_lossy() == name {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/* ---------------- GGUF weights ---------------- */
+
+/// Ensure the GGUF weights exist at `dest`, downloading them if missing. Honors
+/// the `LO_LLAMA_GGUF_URL` override (mirrors `ensureGgufModel`).
+pub async fn ensure_gguf_model(
+    model_id: &str,
+    dest: &Path,
+    progress: Progress<'_>,
+) -> anyhow::Result<()> {
+    if dest.exists() {
+        return Ok(());
+    }
+    let url = env_trimmed("LO_LLAMA_GGUF_URL")
+        .unwrap_or_else(|| resolve_gguf_url(&gguf_ref_for_model(model_id)));
+    if url.is_empty() {
+        return Err(anyhow!(
+            "No GGUF weights configured for \"{model_id}\". Pick a GGUF model in Settings or set LO_LLAMA_GGUF_URL / LO_LLAMA_MODEL."
