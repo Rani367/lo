@@ -316,3 +316,26 @@ fn extract_and_find(archive: &Path, unpack: &Path, exe: &str) -> anyhow::Result<
                 .with_context(|| format!("creating {}", parent.display()))?;
         }
         let mut out =
+            File::create(&out_path).with_context(|| format!("creating {}", out_path.display()))?;
+        io::copy(&mut entry, &mut out)
+            .with_context(|| format!("extracting {}", out_path.display()))?;
+    }
+
+    find_file(unpack, exe)
+        .ok_or_else(|| anyhow!("Downloaded llama.cpp archive did not contain {exe}."))
+}
+
+/// Recursively find the first file named `name` under `dir`. Synchronous.
+fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let ft = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(_) => continue,
+        };
+        if ft.is_dir() {
+            if let Some(hit) = find_file(&path, name) {
+                return Some(hit);
+            }
+        } else if entry.file_name().to_string_lossy() == name {
