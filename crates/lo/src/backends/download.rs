@@ -247,3 +247,26 @@ async fn ensure_llama_binary_inner(
     let dest_dir = dest
         .parent()
         .ok_or_else(|| anyhow!("destination {} has no parent dir", dest.display()))?
+        .to_path_buf();
+    let staging = with_extension_suffix(&dest_dir, "staging");
+
+    let _ = tokio::fs::remove_dir_all(&staging).await;
+    tokio::fs::create_dir_all(&staging)
+        .await
+        .with_context(|| format!("creating {}", staging.display()))?;
+
+    let src_dir = found
+        .parent()
+        .ok_or_else(|| anyhow!("extracted binary has no parent dir"))?
+        .to_path_buf();
+
+    // Copy every sibling file next to the found binary.
+    let mut entries = tokio::fs::read_dir(&src_dir)
+        .await
+        .with_context(|| format!("reading {}", src_dir.display()))?;
+    while let Some(entry) = entries.next_entry().await? {
+        let ft = entry.file_type().await?;
+        if ft.is_file() {
+            let from = entry.path();
+            let to = staging.join(entry.file_name());
+            tokio::fs::copy(&from, &to)
