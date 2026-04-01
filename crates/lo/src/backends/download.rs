@@ -201,3 +201,26 @@ async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
 /// into place atomically (mirrors `ensureLlamaBinary`).
 pub async fn ensure_llama_binary(dest: &Path, progress: Progress<'_>) -> anyhow::Result<()> {
     if dest.exists() {
+        return Ok(());
+    }
+    report(progress, "ENGINE", None);
+
+    let (url, name) = resolve_llama_asset_url().await?;
+
+    let tmp = unique_tmp_dir("lo-llama-").await?;
+    let cleanup_tmp = tmp.clone();
+    let result = ensure_llama_binary_inner(&url, &name, dest, &tmp, progress).await;
+    let _ = tokio::fs::remove_dir_all(&cleanup_tmp).await;
+    result
+}
+
+async fn ensure_llama_binary_inner(
+    url: &str,
+    name: &str,
+    dest: &Path,
+    tmp: &Path,
+    progress: Progress<'_>,
+) -> anyhow::Result<()> {
+    let archive_name = if name.to_lowercase().ends_with(".zip") {
+        name.to_string()
+    } else {
