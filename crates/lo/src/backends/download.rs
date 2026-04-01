@@ -362,3 +362,26 @@ pub async fn ensure_gguf_model(
     if url.is_empty() {
         return Err(anyhow!(
             "No GGUF weights configured for \"{model_id}\". Pick a GGUF model in Settings or set LO_LLAMA_GGUF_URL / LO_LLAMA_MODEL."
+        ));
+    }
+    download_file(&url, dest, "WEIGHTS", progress).await
+}
+
+/* ---------------- helpers ---------------- */
+
+/// The platform `llama-server` executable filename.
+fn exe_name() -> &'static str {
+    if cfg!(windows) {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    }
+}
+
+/// Append a dotted suffix to a path's existing name (`foo` → `foo.part`,
+/// `engine/llama` → `engine/llama.staging`), preserving the original file name in
+/// full (unlike `set_extension`, which would clobber a real extension).
+fn with_extension_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut s = path.as_os_str().to_os_string();
+    s.push(".");
+    s.push(suffix);
