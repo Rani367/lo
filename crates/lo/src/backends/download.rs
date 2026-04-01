@@ -293,3 +293,26 @@ fn extract_and_find(archive: &Path, unpack: &Path, exe: &str) -> anyhow::Result<
 
     std::fs::create_dir_all(unpack).with_context(|| format!("creating {}", unpack.display()))?;
 
+    let file = File::open(archive).with_context(|| format!("opening {}", archive.display()))?;
+    let mut zip = ZipArchive::new(file).context("opening zip archive")?;
+
+    for i in 0..zip.len() {
+        let mut entry = zip.by_index(i).context("reading zip entry")?;
+        // Reject path traversal / absolute paths (zip-slip): `enclosed_name`
+        // returns None for anything that would escape the extraction dir.
+        let rel = match entry.enclosed_name() {
+            Some(p) => p,
+            None => continue,
+        };
+        let out_path = unpack.join(&rel);
+
+        if entry.is_dir() {
+            std::fs::create_dir_all(&out_path)
+                .with_context(|| format!("creating {}", out_path.display()))?;
+            continue;
+        }
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("creating {}", parent.display()))?;
+        }
+        let mut out =
