@@ -270,3 +270,26 @@ async fn ensure_llama_binary_inner(
             let from = entry.path();
             let to = staging.join(entry.file_name());
             tokio::fs::copy(&from, &to)
+                .await
+                .with_context(|| format!("copying {} → {}", from.display(), to.display()))?;
+        }
+    }
+
+    chmod_executable(&staging.join(exe)).await;
+
+    let _ = tokio::fs::remove_dir_all(&dest_dir).await;
+    tokio::fs::rename(&staging, &dest_dir)
+        .await
+        .with_context(|| format!("renaming {} → {}", staging.display(), dest_dir.display()))?;
+    Ok(())
+}
+
+/// Extract `archive` into `unpack` and return the path of the first `exe`-named
+/// file inside it. Synchronous (runs under `spawn_blocking`).
+fn extract_and_find(archive: &Path, unpack: &Path, exe: &str) -> anyhow::Result<PathBuf> {
+    use std::fs::File;
+    use std::io;
+    use zip::ZipArchive;
+
+    std::fs::create_dir_all(unpack).with_context(|| format!("creating {}", unpack.display()))?;
+
