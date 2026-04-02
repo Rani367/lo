@@ -385,3 +385,26 @@ fn with_extension_suffix(path: &Path, suffix: &str) -> PathBuf {
     let mut s = path.as_os_str().to_os_string();
     s.push(".");
     s.push(suffix);
+    PathBuf::from(s)
+}
+
+/// Create a uniquely-named temp directory under the OS temp dir.
+async fn unique_tmp_dir(prefix: &str) -> anyhow::Result<PathBuf> {
+    let base = std::env::temp_dir();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let dir = base.join(format!("{prefix}{nanos}-{}", std::process::id()));
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .with_context(|| format!("creating temp dir {}", dir.display()))?;
+    Ok(dir)
+}
+
+/// Best-effort `chmod 0o755` on POSIX so the binary is executable; a no-op (and
+/// non-fatal) on Windows.
+#[cfg(unix)]
+async fn chmod_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(meta) = tokio::fs::metadata(path).await {
