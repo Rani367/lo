@@ -408,3 +408,13 @@ async fn unique_tmp_dir(prefix: &str) -> anyhow::Result<PathBuf> {
 async fn chmod_executable(path: &Path) {
     use std::os::unix::fs::PermissionsExt;
     if let Ok(meta) = tokio::fs::metadata(path).await {
+        let mut perms = meta.permissions();
+        perms.set_mode(0o755);
+        let _ = tokio::fs::set_permissions(path, perms).await;
+    }
+}
+
+#[cfg(not(unix))]
+async fn chmod_executable(_path: &Path) {
+    // Windows: executability is by extension; nothing to do.
+}
