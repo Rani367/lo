@@ -34,3 +34,26 @@ const HEALTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 pub enum ServerState {
     /// Not running.
     Idle,
+    /// Spawned, waiting for the model to load and `/health` to go ready.
+    Loading,
+    /// Running and serving.
+    Ready,
+    /// Crashed or failed to start (see [`ManagedServer::last_error`]).
+    Error,
+}
+
+impl ServerState {
+    fn from_u8(v: u8) -> Self {
+        match v {
+            1 => ServerState::Loading,
+            2 => ServerState::Ready,
+            3 => ServerState::Error,
+            _ => ServerState::Idle,
+        }
+    }
+    fn as_u8(self) -> u8 {
+        match self {
+            ServerState::Idle => 0,
+            ServerState::Loading => 1,
+            ServerState::Ready => 2,
+            ServerState::Error => 3,
