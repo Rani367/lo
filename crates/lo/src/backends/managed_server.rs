@@ -11,3 +11,26 @@
 //!
 //! Concurrency note: the child handle lives behind a plain `std::sync::Mutex`,
 //! and we only ever call the *synchronous* `Child` methods (`try_wait`,
+//! `start_kill`, `id`) while holding it — never `.await` under the lock. Process
+//! exit is observed by polling `try_wait()` inside the health loop and a short
+//! background reaper, mirroring the TS poll-based lifecycle without a long-lived
+//! task that would pin the handle.
+
+use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::{Child, Command};
+
+/// Model loads (especially a first-run download) can be slow.
+const HEALTH_TIMEOUT: Duration = Duration::from_secs(180);
+const HEALTH_POLL: Duration = Duration::from_millis(500);
+const HEALTH_REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// The lifecycle state of a managed server (mirrors the TS `ServerState`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServerState {
+    /// Not running.
+    Idle,
