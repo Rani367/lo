@@ -80,3 +80,26 @@ pub struct ServerSpec {
     /// Build the spawn command/env from current settings (re-read on each start).
     pub build: Box<dyn Fn() -> CommandSpec + Send + Sync>,
     /// The `GET` URL polled until ready.
+    pub health_url: String,
+    /// Given a `/health` HTTP status, is the model loaded and serving?
+    pub is_ready: Box<dyn Fn(u16) -> bool + Send + Sync>,
+}
+
+/// Shared, cloneable interior state so the spawned reader tasks and the caller
+/// can all observe/mutate the server's status.
+struct Inner {
+    state: AtomicU8,
+    last_error: Mutex<Option<String>>,
+    /// Set just before a deliberate kill so the exit path treats it as a clean
+    /// stop, not a crash.
+    intentional_stop: AtomicBool,
+    /// The live child handle (`None` when idle). Guarded by a *sync* mutex; only
+    /// synchronous `Child` methods are called under it.
+    child: Mutex<Option<Child>>,
+    spec: ServerSpec,
+}
+
+impl Inner {
+    fn set_state(&self, s: ServerState) {
+        self.state.store(s.as_u8(), Ordering::SeqCst);
+    }
