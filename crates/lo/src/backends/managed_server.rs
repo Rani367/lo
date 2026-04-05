@@ -103,3 +103,26 @@ impl Inner {
     fn set_state(&self, s: ServerState) {
         self.state.store(s.as_u8(), Ordering::SeqCst);
     }
+    fn state(&self) -> ServerState {
+        ServerState::from_u8(self.state.load(Ordering::SeqCst))
+    }
+    fn set_error(&self, msg: Option<String>) {
+        *self.last_error.lock().expect("last_error poisoned") = msg;
+    }
+    fn error(&self) -> Option<String> {
+        self.last_error.lock().expect("last_error poisoned").clone()
+    }
+
+    /// Has the current child exited? Returns `Some(exit_detail)` on exit,
+    /// `None` while still running (or no child). Reaps the handle on exit and
+    /// updates state, distinguishing a deliberate stop from a crash.
+    fn poll_exit(&self) -> Option<String> {
+        let mut guard = self.child.lock().expect("child poisoned");
+        let exited = match guard.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(status)) => Some(status_detail(&self.spec.name, Ok(status))),
+                Ok(None) => None,
+                Err(err) => Some(status_detail(&self.spec.name, Err(err))),
+            },
+            None => return None,
+        };
