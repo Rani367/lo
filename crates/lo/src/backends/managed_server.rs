@@ -57,3 +57,26 @@ impl ServerState {
             ServerState::Loading => 1,
             ServerState::Ready => 2,
             ServerState::Error => 3,
+        }
+    }
+}
+
+/// How to (re)build the spawn command from current settings/env. Re-invoked on
+/// every start so an env/settings change is picked up on restart.
+pub struct CommandSpec {
+    /// The program to execute (`python`, the `llama-server` path, …).
+    pub program: String,
+    /// Its arguments, in order.
+    pub args: Vec<String>,
+    /// Extra environment variables layered on top of the inherited environment.
+    pub envs: Vec<(String, String)>,
+}
+
+/// The recipe for a managed server: its log name, how to build its command, the
+/// health URL to poll, and the readiness predicate.
+pub struct ServerSpec {
+    /// Short name used as a log prefix (`brain`, `llama`, …).
+    pub name: String,
+    /// Build the spawn command/env from current settings (re-read on each start).
+    pub build: Box<dyn Fn() -> CommandSpec + Send + Sync>,
+    /// The `GET` URL polled until ready.
