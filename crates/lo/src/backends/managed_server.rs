@@ -149,3 +149,26 @@ fn status_detail(name: &str, status: std::io::Result<std::process::ExitStatus>) 
             "{name} exited ({}).",
             code.code()
                 .map(|c| c.to_string())
+                .unwrap_or_else(|| "signal".into())
+        ),
+        Err(err) => format!("{name} exited ({err})."),
+    }
+}
+
+/// A health-checked child process. Cheap to clone-share via its `Arc<Inner>`.
+pub struct ManagedServer {
+    inner: Arc<Inner>,
+}
+
+impl ManagedServer {
+    /// Create a managed server from its spec. Nothing is spawned until
+    /// [`ensure`](Self::ensure).
+    pub fn new(spec: ServerSpec) -> Self {
+        Self {
+            inner: Arc::new(Inner {
+                state: AtomicU8::new(ServerState::Idle.as_u8()),
+                last_error: Mutex::new(None),
+                intentional_stop: AtomicBool::new(false),
+                child: Mutex::new(None),
+                spec,
+            }),
