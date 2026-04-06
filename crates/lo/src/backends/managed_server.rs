@@ -172,3 +172,26 @@ impl ManagedServer {
                 child: Mutex::new(None),
                 spec,
             }),
+        }
+    }
+
+    /// A second handle to the *same* managed server, sharing its process and
+    /// lifecycle state (`Arc<Inner>`). Lets the caller keep the canonical handle
+    /// while still issuing `ensure`/`stop`/`state` from elsewhere.
+    pub fn handle(&self) -> ManagedServer {
+        ManagedServer {
+            inner: self.inner.clone(),
+        }
+    }
+
+    /// Is a child handle currently present (alive, not yet reaped)?
+    fn has_child(&self) -> bool {
+        self.inner.child.lock().expect("child poisoned").is_some()
+    }
+
+    /// Start (if needed) and resolve once the server reports healthy.
+    ///
+    /// - Already `Ready` with a live child → no-op.
+    /// - A live child that is *not* ready (a prior health failure) → restart
+    ///   cleanly rather than spawning a second process that would clash on the
+    ///   port.
