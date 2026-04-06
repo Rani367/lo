@@ -126,3 +126,26 @@ impl Inner {
             },
             None => return None,
         };
+        if let Some(detail) = exited {
+            *guard = None;
+            drop(guard);
+            if self.intentional_stop.swap(false, Ordering::SeqCst) {
+                self.set_state(ServerState::Idle);
+                None
+            } else {
+                self.set_error(Some(detail.clone()));
+                self.set_state(ServerState::Error);
+                Some(detail)
+            }
+        } else {
+            None
+        }
+    }
+}
+
+fn status_detail(name: &str, status: std::io::Result<std::process::ExitStatus>) -> String {
+    match status {
+        Ok(code) => format!(
+            "{name} exited ({}).",
+            code.code()
+                .map(|c| c.to_string())
