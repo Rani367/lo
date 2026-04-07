@@ -241,3 +241,26 @@ impl ManagedServer {
         cmd.args(&args)
             .envs(envs)
             .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(err) => {
+                let msg = format!("{} failed to start: {err}", self.inner.spec.name);
+                self.inner.set_error(Some(msg.clone()));
+                self.inner.set_state(ServerState::Error);
+                return Err(anyhow::anyhow!(msg));
+            }
+        };
+
+        let name = self.inner.spec.name.clone();
+
+        // Drain stdout: log each non-empty line with the server's name prefix.
+        if let Some(stdout) = child.stdout.take() {
+            let name = name.clone();
+            tokio::spawn(async move {
+                let mut lines = BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if !line.trim().is_empty() {
