@@ -195,3 +195,26 @@ impl ManagedServer {
     /// - A live child that is *not* ready (a prior health failure) → restart
     ///   cleanly rather than spawning a second process that would clash on the
     ///   port.
+    /// - Otherwise → spawn fresh.
+    pub async fn ensure(&self) -> anyhow::Result<()> {
+        // Reap a quietly-dead child first so `has_child` reflects reality.
+        self.inner.poll_exit();
+
+        let alive = self.has_child();
+        let ready = self.inner.state() == ServerState::Ready;
+
+        if alive && ready {
+            return Ok(());
+        }
+        if alive {
+            // Live but not ready — restart instead of double-spawning.
+            self.restart().await;
+            return self.ready_or_err();
+        }
+        self.start().await
+    }
+
+    fn ready_or_err(&self) -> anyhow::Result<()> {
+        if self.inner.state() == ServerState::Ready {
+            Ok(())
+        } else {
