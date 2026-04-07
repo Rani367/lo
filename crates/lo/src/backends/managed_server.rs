@@ -218,3 +218,26 @@ impl ManagedServer {
         if self.inner.state() == ServerState::Ready {
             Ok(())
         } else {
+            Err(anyhow::anyhow!(self.inner.error().unwrap_or_else(
+                || format!("{} is not ready.", self.inner.spec.name)
+            )))
+        }
+    }
+
+    /// Spawn the child, wire up stdout/stderr logging, then poll `/health` until
+    /// ready (or fail).
+    async fn start(&self) -> anyhow::Result<()> {
+        self.inner.set_error(None);
+        self.inner.set_state(ServerState::Loading);
+        self.inner.intentional_stop.store(false, Ordering::SeqCst);
+
+        let CommandSpec {
+            program,
+            args,
+            envs,
+        } = (self.inner.spec.build)();
+
+        let mut cmd = Command::new(&program);
+        cmd.args(&args)
+            .envs(envs)
+            .stdin(Stdio::null())
