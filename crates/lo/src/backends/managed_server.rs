@@ -333,3 +333,26 @@ impl ManagedServer {
                     return Ok(());
                 }
             }
+            // Connection refused while still binding/loading — keep polling.
+
+            if Instant::now() > deadline {
+                let msg = "Timed out waiting for the model to load.".to_string();
+                self.inner.set_state(ServerState::Error);
+                self.inner.set_error(Some(msg.clone()));
+                return Err(anyhow::anyhow!(msg));
+            }
+            tokio::time::sleep(HEALTH_POLL).await;
+        }
+    }
+
+    /// Deliberately kill the running child (if any) and start a fresh one.
+    pub async fn restart(&self) {
+        self.kill_current().await;
+        let _ = self.start().await;
+    }
+
+    /// Kill the running child without restarting (e.g. on app shutdown). Marks
+    /// the kill as intentional so the exit isn't recorded as a crash.
+    pub fn stop(&self) {
+        self.inner.intentional_stop.store(true, Ordering::SeqCst);
+        let mut guard = self.inner.child.lock().expect("child poisoned");
