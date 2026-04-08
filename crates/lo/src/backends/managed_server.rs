@@ -287,3 +287,26 @@ impl ManagedServer {
                         tracing::warn!(target: "lo::backend", "[{name}] {}", line.trim_end());
                     }
                 }
+            });
+        }
+
+        // Hand the child to the shared state.
+        *self.inner.child.lock().expect("child poisoned") = Some(child);
+
+        // Poll /health until ready (or the child dies / we time out).
+        self.wait_for_health().await
+    }
+
+    /// Poll `GET health_url` every 500ms up to 180s, ready when `is_ready(status)`.
+    /// Fails fast if the child dies before becoming ready.
+    async fn wait_for_health(&self) -> anyhow::Result<()> {
+        let client = reqwest::Client::builder()
+            .build()
+            .map_err(|e| anyhow::anyhow!("failed to build health client: {e}"))?;
+
+        let deadline = Instant::now() + HEALTH_TIMEOUT;
+        loop {
+            // If the child died while binding/loading, fail with its error.
+            if let Some(detail) = self.inner.poll_exit() {
+                return Err(anyhow::anyhow!(detail));
+            }
