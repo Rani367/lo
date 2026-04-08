@@ -379,3 +379,13 @@ impl ManagedServer {
 
     /// The current lifecycle state.
     pub fn state(&self) -> ServerState {
+        // Reap a quietly-dead child so a crashed server reports `Error`.
+        self.inner.poll_exit();
+        self.inner.state()
+    }
+
+    /// The last recorded error message, if any.
+    pub fn last_error(&self) -> Option<String> {
+        self.inner.error()
+    }
+}
