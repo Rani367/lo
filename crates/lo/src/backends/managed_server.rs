@@ -356,3 +356,26 @@ impl ManagedServer {
     pub fn stop(&self) {
         self.inner.intentional_stop.store(true, Ordering::SeqCst);
         let mut guard = self.inner.child.lock().expect("child poisoned");
+        if let Some(child) = guard.as_mut() {
+            let _ = child.start_kill();
+        }
+        // `kill_on_drop(true)` ensures the OS process is reaped if we drop the
+        // handle; we keep it so `poll_exit` can observe a clean Idle transition.
+    }
+
+    /// Kill the current child and await its exit (used by `restart`).
+    async fn kill_current(&self) {
+        self.inner.intentional_stop.store(true, Ordering::SeqCst);
+        // Take the handle out so we can `kill().await` (SIGKILL + reap) without
+        // holding the sync lock across the await.
+        let child = self.inner.child.lock().expect("child poisoned").take();
+        if let Some(mut child) = child {
+            let _ = child.kill().await;
+        }
+        // Consume the intentional-stop flag we set (no exit watcher will).
+        self.inner.intentional_stop.store(false, Ordering::SeqCst);
+        self.inner.set_state(ServerState::Idle);
+    }
+
+    /// The current lifecycle state.
+    pub fn state(&self) -> ServerState {
