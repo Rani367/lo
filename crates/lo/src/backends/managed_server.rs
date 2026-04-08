@@ -310,3 +310,26 @@ impl ManagedServer {
             if let Some(detail) = self.inner.poll_exit() {
                 return Err(anyhow::anyhow!(detail));
             }
+            if !self.has_child() {
+                // Reaped as an intentional stop, or never started.
+                let msg = self
+                    .inner
+                    .error()
+                    .unwrap_or_else(|| "Server exited before becoming ready.".into());
+                self.inner.set_state(ServerState::Error);
+                self.inner.set_error(Some(msg.clone()));
+                return Err(anyhow::anyhow!(msg));
+            }
+
+            if let Ok(res) = client
+                .get(&self.inner.spec.health_url)
+                .timeout(HEALTH_REQUEST_TIMEOUT)
+                .send()
+                .await
+            {
+                if (self.inner.spec.is_ready)(res.status().as_u16()) {
+                    self.inner.set_state(ServerState::Ready);
+                    self.inner.set_error(None);
+                    return Ok(());
+                }
+            }
