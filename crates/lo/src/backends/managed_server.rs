@@ -264,3 +264,26 @@ impl ManagedServer {
                 let mut lines = BufReader::new(stdout).lines();
                 while let Ok(Some(line)) = lines.next_line().await {
                     if !line.trim().is_empty() {
+                        tracing::info!(target: "lo::backend", "[{name}] {}", line.trim_end());
+                    }
+                }
+            });
+        }
+
+        // Drain stderr: log it, and flag an EADDRINUSE so `ensure` surfaces a
+        // clear "port already in use" rather than a generic timeout.
+        if let Some(stderr) = child.stderr.take() {
+            let name = name.clone();
+            let inner = self.inner.clone();
+            tokio::spawn(async move {
+                let mut lines = BufReader::new(stderr).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    if line.contains("Address already in use") || line.contains("bind") {
+                        inner.set_error(Some(format!(
+                            "{name}: port already in use — a previous instance may still be running."
+                        )));
+                    }
+                    if !line.trim().is_empty() {
+                        tracing::warn!(target: "lo::backend", "[{name}] {}", line.trim_end());
+                    }
+                }
