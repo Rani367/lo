@@ -126,3 +126,26 @@ impl Engine {
         }
     }
 
+    /// Stop the active managed server (no-op for the unmanaged backends — they're
+    /// not ours to stop).
+    pub fn stop(&self) {
+        if let Some(active) = self.active.lock().expect("active poisoned").as_ref() {
+            active.server.stop();
+        }
+    }
+
+    /// A non-blocking health snapshot for the HUD (mirrors `getEngineStatus`,
+    /// folding only the brain — local ASR health lives in the worker).
+    pub fn status(&self, settings: &LoSettings) -> LocalStatus {
+        let endpoint = resolve_endpoint(settings);
+        let model = endpoint.model_id.clone();
+        let kind = endpoint.kind;
+
+        let (state, last_error) = self.current_state(kind);
+
+        match state {
+            ServerState::Ready => LocalStatus {
+                engine_up: true,
+                loading: false,
+                backend: Some(kind),
+                model,
