@@ -57,3 +57,26 @@ struct UnmanagedState {
 
 impl Default for Engine {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Engine {
+    /// Create an idle engine. The concrete backend is resolved lazily on the
+    /// first [`ensure_ready`](Self::ensure_ready).
+    pub fn new() -> Engine {
+        Engine {
+            active: Mutex::new(None),
+            unmanaged: Mutex::new(UnmanagedState::default()),
+        }
+    }
+
+    /// Resolve the endpoint for the active backend (delegates to
+    /// `lo_core::backends::resolve_endpoint`).
+    pub fn endpoint(&self, settings: &LoSettings) -> BackendEndpoint {
+        resolve_endpoint(settings)
+    }
+
+    /// Ensure the active backend is up and the model is loaded + reachable.
+    ///
+    /// - MLX / llama → spawn (downloading the llama binary + GGUF first) and
