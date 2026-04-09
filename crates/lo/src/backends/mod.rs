@@ -80,3 +80,26 @@ impl Engine {
     /// Ensure the active backend is up and the model is loaded + reachable.
     ///
     /// - MLX / llama → spawn (downloading the llama binary + GGUF first) and
+    ///   health-poll a [`ManagedServer`].
+    /// - Ollama / Custom → a single health GET (never spawned/stopped).
+    pub async fn ensure_ready(
+        &self,
+        settings: &LoSettings,
+        progress: ProgressFn<'_>,
+    ) -> anyhow::Result<()> {
+        let kind = resolve_backend_kind(settings);
+        match kind {
+            BackendKind::Mlx => {
+                let server = self.managed_for(kind, settings);
+                server.ensure().await
+            }
+            BackendKind::Llama => {
+                // Acquire the binary + weights before spawning (skipped if env
+                // overrides already point at existing files).
+                self.ensure_llama_assets(settings, progress).await?;
+                let server = self.managed_for(kind, settings);
+                server.ensure().await
+            }
+            BackendKind::Ollama => self.ensure_ollama(settings).await,
+            BackendKind::Custom => self.ensure_custom(settings).await,
+        }
