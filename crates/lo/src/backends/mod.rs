@@ -149,3 +149,26 @@ impl Engine {
                 loading: false,
                 backend: Some(kind),
                 model,
+                detail: None,
+            },
+            ServerState::Error => LocalStatus {
+                engine_up: false,
+                loading: false,
+                backend: None,
+                model,
+                detail: last_error,
+            },
+            // Idle counts as "loading" in the HUD: a load will be kicked off.
+            ServerState::Idle | ServerState::Loading => LocalStatus {
+                engine_up: false,
+                loading: true,
+                backend: None,
+                model,
+                detail: Some("Loading model…".to_string()),
+            },
+        }
+    }
+
+    /// Fire a best-effort 1-token completion to warm prompt-cache / JIT (mirrors
+    /// `warmCompletion`). Never fails the caller.
+    pub async fn warm(&self, settings: &LoSettings) {
