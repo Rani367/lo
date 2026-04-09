@@ -34,3 +34,26 @@ pub type ProgressFn<'a> = Option<&'a (dyn Fn(&str, Option<u8>) + Send + Sync)>;
 
 /// The active managed process, tagged with the backend kind it serves so a
 /// settings flip (which changes the resolved kind) tears down the old one.
+struct Active {
+    kind: BackendKind,
+    server: ManagedServer,
+}
+
+/// The engine façade. Holds the active managed server (for MLX / llama.cpp) and
+/// the unmanaged engines' health state, reconstructing when the resolved kind
+/// changes.
+pub struct Engine {
+    active: Mutex<Option<Active>>,
+    /// Last health state for the unmanaged backends (Ollama / Custom), since they
+    /// have no `ManagedServer` to hold it.
+    unmanaged: Mutex<UnmanagedState>,
+}
+
+#[derive(Default)]
+struct UnmanagedState {
+    state: Option<ServerState>,
+    last_error: Option<String>,
+}
+
+impl Default for Engine {
+    fn default() -> Self {
