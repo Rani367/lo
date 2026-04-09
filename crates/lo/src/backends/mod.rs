@@ -172,3 +172,26 @@ impl Engine {
     /// Fire a best-effort 1-token completion to warm prompt-cache / JIT (mirrors
     /// `warmCompletion`). Never fails the caller.
     pub async fn warm(&self, settings: &LoSettings) {
+        let endpoint = resolve_endpoint(settings);
+        let _ = warm_completion(&endpoint).await;
+    }
+
+    /* ---------------- managed (MLX / llama) ---------------- */
+
+    /// Get (constructing/replacing as needed) the [`ManagedServer`] for the given
+    /// kind. A kind change stops the prior server first, mirroring the TS cache
+    /// invalidation in `getLlmBackend`.
+    fn managed_for(&self, kind: BackendKind, settings: &LoSettings) -> ManagedServer {
+        let mut guard = self.active.lock().expect("active poisoned");
+        if let Some(active) = guard.as_ref() {
+            if active.kind == kind {
+                return active.server.handle();
+            }
+            active.server.stop();
+        }
+        let server = match kind {
+            BackendKind::Mlx => build_mlx_server(settings),
+            BackendKind::Llama => build_llama_server(settings),
+            _ => unreachable!("managed_for is only called for MLX/Llama"),
+        };
+        let handle = server.handle();
