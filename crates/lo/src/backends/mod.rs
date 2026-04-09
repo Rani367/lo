@@ -103,3 +103,26 @@ impl Engine {
             BackendKind::Ollama => self.ensure_ollama(settings).await,
             BackendKind::Custom => self.ensure_custom(settings).await,
         }
+    }
+
+    /// Restart the active backend. Managed servers are killed + respawned; the
+    /// unmanaged ones simply re-health-check.
+    pub async fn restart(&self, settings: &LoSettings) -> anyhow::Result<()> {
+        let kind = resolve_backend_kind(settings);
+        match kind {
+            BackendKind::Mlx | BackendKind::Llama => {
+                let server = self.managed_for(kind, settings);
+                server.restart().await;
+                if server.state() == ServerState::Ready {
+                    Ok(())
+                } else {
+                    Err(anyhow::anyhow!(server
+                        .last_error()
+                        .unwrap_or_else(|| "engine failed to restart".into())))
+                }
+            }
+            BackendKind::Ollama => self.ensure_ollama(settings).await,
+            BackendKind::Custom => self.ensure_custom(settings).await,
+        }
+    }
+
