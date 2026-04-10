@@ -218,3 +218,26 @@ impl Engine {
             download::ensure_gguf_model(&settings.model, &model_path, progress).await?;
         }
         Ok(())
+    }
+
+    /* ---------------- unmanaged (Ollama / Custom) ---------------- */
+
+    async fn ensure_ollama(&self, settings: &LoSettings) -> anyhow::Result<()> {
+        self.set_unmanaged(ServerState::Loading, None);
+        let endpoint = resolve_endpoint(settings);
+        // endpoint.base_url ends in `/v1`; the health probe is `/api/tags` on the
+        // bare Ollama base (strip exactly one `/v1` suffix).
+        let base = endpoint
+            .base_url
+            .strip_suffix("/v1")
+            .unwrap_or(&endpoint.base_url);
+        let url = format!("{base}/api/tags");
+        match health_get(&url, None, Duration::from_secs(3)).await {
+            Ok(status) if (200..300).contains(&status) => {
+                self.set_unmanaged(ServerState::Ready, None);
+                Ok(())
+            }
+            _ => {
+                let msg = format!(
+                    "Ollama is not reachable at {base}. Start it with `ollama serve` and pull a tool-capable model."
+                );
