@@ -195,3 +195,26 @@ impl Engine {
             _ => unreachable!("managed_for is only called for MLX/Llama"),
         };
         let handle = server.handle();
+        *guard = Some(Active { kind, server });
+        handle
+    }
+
+    /// Acquire the llama binary + GGUF weights if missing (honoring the env
+    /// overrides), before spawning the server.
+    async fn ensure_llama_assets(
+        &self,
+        settings: &LoSettings,
+        progress: ProgressFn<'_>,
+    ) -> anyhow::Result<()> {
+        let bin = llama_bin_path();
+        let bin_override = env_trimmed("LO_LLAMA_BIN").is_some();
+        if !bin_override || !bin.exists() {
+            download::ensure_llama_binary(&bin, progress).await?;
+        }
+
+        let model_path = llama_model_path(settings);
+        let model_override = env_trimmed("LO_LLAMA_MODEL").is_some();
+        if !model_override || !model_path.exists() {
+            download::ensure_gguf_model(&settings.model, &model_path, progress).await?;
+        }
+        Ok(())
