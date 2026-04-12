@@ -264,3 +264,26 @@ impl Engine {
             Ok(_status) => {
                 self.set_unmanaged(ServerState::Ready, None);
                 Ok(())
+            }
+            Err(err) => {
+                let msg = format!(
+                    "Custom endpoint unreachable at {}: {err}",
+                    endpoint.base_url
+                );
+                self.set_unmanaged(ServerState::Error, Some(msg.clone()));
+                Err(anyhow::anyhow!(msg))
+            }
+        }
+    }
+
+    fn set_unmanaged(&self, state: ServerState, err: Option<String>) {
+        let mut u = self.unmanaged.lock().expect("unmanaged poisoned");
+        u.state = Some(state);
+        u.last_error = err;
+    }
+
+    /// The current `(state, last_error)` for the resolved kind.
+    fn current_state(&self, kind: BackendKind) -> (ServerState, Option<String>) {
+        match kind {
+            BackendKind::Mlx | BackendKind::Llama => {
+                let guard = self.active.lock().expect("active poisoned");
