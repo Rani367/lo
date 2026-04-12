@@ -241,3 +241,26 @@ impl Engine {
                 let msg = format!(
                     "Ollama is not reachable at {base}. Start it with `ollama serve` and pull a tool-capable model."
                 );
+                self.set_unmanaged(ServerState::Error, Some(msg.clone()));
+                Err(anyhow::anyhow!(msg))
+            }
+        }
+    }
+
+    async fn ensure_custom(&self, settings: &LoSettings) -> anyhow::Result<()> {
+        let endpoint = resolve_endpoint(settings);
+        if endpoint.base_url.is_empty() {
+            let msg =
+                "No custom LLM endpoint configured. Set LO_LLM_URL or the endpoint in Settings."
+                    .to_string();
+            self.set_unmanaged(ServerState::Error, Some(msg.clone()));
+            return Err(anyhow::anyhow!(msg));
+        }
+        self.set_unmanaged(ServerState::Loading, None);
+        // Any HTTP response to /models means the host is reachable (some servers
+        // 404 it but still serve /chat/completions).
+        let url = format!("{}/models", endpoint.base_url);
+        match health_get(&url, endpoint.api_key.as_deref(), Duration::from_secs(5)).await {
+            Ok(_status) => {
+                self.set_unmanaged(ServerState::Ready, None);
+                Ok(())
