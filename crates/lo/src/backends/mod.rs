@@ -287,3 +287,26 @@ impl Engine {
         match kind {
             BackendKind::Mlx | BackendKind::Llama => {
                 let guard = self.active.lock().expect("active poisoned");
+                match guard.as_ref() {
+                    Some(active) if active.kind == kind => {
+                        (active.server.state(), active.server.last_error())
+                    }
+                    _ => (ServerState::Idle, None),
+                }
+            }
+            BackendKind::Ollama | BackendKind::Custom => {
+                let u = self.unmanaged.lock().expect("unmanaged poisoned");
+                (u.state.unwrap_or(ServerState::Idle), u.last_error.clone())
+            }
+        }
+    }
+}
+
+/* ---------------- server specs ---------------- */
+
+/// `python -m mlx_lm server --model <id> --host 127.0.0.1 --port 8765
+/// --trust-remote-code` — the Apple-Silicon fast path (mirrors `mlx.ts`).
+fn build_mlx_server(settings: &LoSettings) -> ManagedServer {
+    let port = port_env("LO_BRAIN_PORT", MLX_PORT);
+    let model = resolve_endpoint(settings).model_id;
+    let spec = ServerSpec {
