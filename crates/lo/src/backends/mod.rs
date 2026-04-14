@@ -356,3 +356,26 @@ fn build_llama_server(settings: &LoSettings) -> ManagedServer {
         is_ready: Box::new(|status| status == 200),
         build: Box::new(move || CommandSpec {
             program: bin_str.clone(),
+            args: vec![
+                "--model".into(),
+                model_str.clone(),
+                "--host".into(),
+                HOST.to_string(),
+                "--port".into(),
+                port.to_string(),
+                "--jinja".into(),
+                "-fa".into(),
+                "--no-webui".into(),
+                "-ngl".into(),
+                "999".into(),
+                "-c".into(),
+                ctx.to_string(),
+            ],
+            envs: vec![],
+        }),
+    };
+    ManagedServer::new(spec)
+}
+
+/* ---------------- path / env helpers ---------------- */
+
