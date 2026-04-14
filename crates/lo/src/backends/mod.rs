@@ -333,3 +333,26 @@ fn build_mlx_server(settings: &LoSettings) -> ManagedServer {
     };
     ManagedServer::new(spec)
 }
+
+/// `llama-server --model <path> --host 127.0.0.1 --port 8770 --jinja -fa
+/// --no-webui -ngl 999 -c <ctx>` — the universal cross-platform engine. Args are
+/// VERBATIM from `llama.ts`.
+fn build_llama_server(settings: &LoSettings) -> ManagedServer {
+    let port = port_env("LO_LLAMA_PORT", LLAMA_PORT);
+    let bin = llama_bin_path();
+    let model_path = llama_model_path(settings);
+    let ctx = env_trimmed("LO_LLAMA_CTX")
+        .and_then(|v| v.parse::<u32>().ok())
+        .filter(|&c| c != 0)
+        .unwrap_or(8192);
+
+    let bin_str = bin.to_string_lossy().to_string();
+    let model_str = model_path.to_string_lossy().to_string();
+
+    let spec = ServerSpec {
+        name: "llama".to_string(),
+        health_url: format!("http://{HOST}:{port}/health"),
+        // llama-server /health is 200 once the model is loaded.
+        is_ready: Box::new(|status| status == 200),
+        build: Box::new(move || CommandSpec {
+            program: bin_str.clone(),
