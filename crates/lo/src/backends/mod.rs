@@ -310,3 +310,26 @@ fn build_mlx_server(settings: &LoSettings) -> ManagedServer {
     let port = port_env("LO_BRAIN_PORT", MLX_PORT);
     let model = resolve_endpoint(settings).model_id;
     let spec = ServerSpec {
+        name: "brain".to_string(),
+        health_url: format!("http://{HOST}:{port}/health"),
+        // mlx_lm server loads the model before it serves; 200 = ready.
+        is_ready: Box::new(|status| status == 200),
+        build: Box::new(move || CommandSpec {
+            program: python_command(),
+            args: vec![
+                "-m".into(),
+                "mlx_lm".into(),
+                "server".into(),
+                "--model".into(),
+                model.clone(),
+                "--host".into(),
+                HOST.to_string(),
+                "--port".into(),
+                port.to_string(),
+                "--trust-remote-code".into(),
+            ],
+            envs: vec![("PYTHONUNBUFFERED".to_string(), "1".to_string())],
+        }),
+    };
+    ManagedServer::new(spec)
+}
