@@ -402,3 +402,26 @@ fn python_command() -> String {
 fn llama_bin_path() -> PathBuf {
     if let Some(explicit) = env_trimmed("LO_LLAMA_BIN") {
         return PathBuf::from(explicit);
+    }
+    let exe = if cfg!(windows) {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    };
+    cache_dir().join("engine").join("llama").join(exe)
+}
+
+/// Path to the GGUF weights: `LO_LLAMA_MODEL` override, else the managed download
+/// under the cache dir (`models/<gguf_file_for(model)>`).
+fn llama_model_path(settings: &LoSettings) -> PathBuf {
+    if let Some(explicit) = env_trimmed("LO_LLAMA_MODEL") {
+        return PathBuf::from(explicit);
+    }
+    cache_dir()
+        .join("models")
+        .join(gguf_file_for(&settings.model))
+}
+
+fn env_trimmed(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
