@@ -425,3 +425,26 @@ fn llama_model_path(settings: &LoSettings) -> PathBuf {
 fn env_trimmed(key: &str) -> Option<String> {
     std::env::var(key)
         .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn port_env(key: &str, default: u16) -> u16 {
+    env_trimmed(key)
+        .and_then(|v| v.parse::<u16>().ok())
+        .filter(|&p| p != 0)
+        .unwrap_or(default)
+}
+
+/* ---------------- HTTP helpers (the http.ts surface) ---------------- */
+
+/// A bare health GET; returns the HTTP status code on any response.
+async fn health_get(url: &str, api_key: Option<&str>, timeout: Duration) -> anyhow::Result<u16> {
+    let client = reqwest::Client::builder()
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build client: {e}"))?;
+    let mut req = client.get(url).timeout(timeout);
+    if let Some(key) = api_key {
+        req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
+    }
+    let res = req.send().await?;
