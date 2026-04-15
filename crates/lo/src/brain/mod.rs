@@ -44,3 +44,26 @@ pub async fn stream_completion(
 
     let res = req
         .send()
+        .await
+        .with_context(|| format!("brain request failed to send to {url}"))?;
+
+    let status = res.status();
+    if !status.is_success() {
+        // Mirror `Brain request failed (status): detail.slice(0,300)`.
+        let detail = res.text().await.unwrap_or_default();
+        let truncated: String = detail.chars().take(ERROR_BODY_LIMIT).collect();
+        return Err(anyhow!(
+            "Brain request failed ({}): {}",
+            status.as_u16(),
+            truncated
+        ));
+    }
+
+    let mut acc = StreamAccumulator::new();
+    // Buffer raw bytes (not a lossy `String`): a multi-byte UTF-8 char split
+    // across two chunks must not be corrupted. We only decode *complete*,
+    // `\n`-terminated lines — by then any split char has been reassembled.
+    let mut buffer: Vec<u8> = Vec::new();
+    let mut stream = res.bytes_stream();
+
+    'outer: while let Some(chunk) = stream.next().await {
