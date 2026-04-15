@@ -379,3 +379,26 @@ fn build_llama_server(settings: &LoSettings) -> ManagedServer {
 
 /* ---------------- path / env helpers ---------------- */
 
+/// Resolve the Python interpreter for the MLX server: `LO_PYTHON` (or the
+/// `LO_GEMMA_AUDIO_PYTHON` alias), else the project-local venv if present, else
+/// `python3` (mirrors `python.ts`).
+fn python_command() -> String {
+    if let Some(explicit) =
+        env_trimmed("LO_PYTHON").or_else(|| env_trimmed("LO_GEMMA_AUDIO_PYTHON"))
+    {
+        return explicit;
+    }
+    let venv = PathBuf::from(".venv-gemma-audio")
+        .join("bin")
+        .join("python");
+    if venv.exists() {
+        return venv.to_string_lossy().to_string();
+    }
+    "python3".to_string()
+}
+
+/// Path to the llama-server binary: `LO_LLAMA_BIN` override, else the managed
+/// location under the cache dir (`engine/llama/llama-server[.exe]`).
+fn llama_bin_path() -> PathBuf {
+    if let Some(explicit) = env_trimmed("LO_LLAMA_BIN") {
+        return PathBuf::from(explicit);
