@@ -448,3 +448,26 @@ async fn health_get(url: &str, api_key: Option<&str>, timeout: Duration) -> anyh
         req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
     }
     let res = req.send().await?;
+    Ok(res.status().as_u16())
+}
+
+/// Fire a 1-token completion to warm prompt-cache / JIT. Best-effort; the result
+/// is intentionally ignored by callers (mirrors `warmCompletion`).
+async fn warm_completion(endpoint: &BackendEndpoint) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build client: {e}"))?;
+    let url = format!("{}/chat/completions", endpoint.base_url);
+    let body = serde_json::json!({
+        "model": endpoint.model_id,
+        "messages": [{ "role": "user", "content": "Say ready." }],
+        "max_tokens": 1,
+        "stream": false,
+    });
+    let mut req = client.post(&url).json(&body);
+    if let Some(key) = endpoint.api_key.as_deref() {
+        req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
+    }
+    let _ = req.send().await?;
+    Ok(())
+}
