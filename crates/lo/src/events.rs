@@ -61,3 +61,8 @@ pub enum AppEvent {
     ModelDownload { label: String, pct: Option<u8> },
     /// Result of a `Transcribe` command, matched by `id`.
     Transcribed { id: u64, text: String },
+    /// Engine health for the HUD status dot.
+    ServerStatus(LocalStatus),
+    /// A worker-level error to surface.
+    Error(String),
+}
