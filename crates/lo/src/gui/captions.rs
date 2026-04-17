@@ -16,3 +16,26 @@ const BOTTOM_FRACTION: f32 = 0.13;
 /// nice-to-have; v1 uses a clean cross-fade driven by `fade`.
 #[derive(Debug, Clone)]
 pub struct Captions {
+    /// What you said (rendered on top, uppercase grotesk).
+    pub you: String,
+    /// Lo's reply (rendered below, warm serif).
+    pub lo: String,
+    /// Shared opacity, 0..1.
+    pub fade: f32,
+}
+
+impl Captions {
+    /// An empty, fully-faded caption block.
+    pub fn new() -> Self {
+        Captions {
+            you: String::new(),
+            lo: String::new(),
+            fade: 0.0,
+        }
+    }
+}
+
+impl Default for Captions {
+    fn default() -> Self {
+        Captions::new()
+    }
