@@ -90,3 +90,9 @@ pub async fn stream_completion(
         let line = String::from_utf8_lossy(&buffer);
         let (delta, _done) = acc.push_line(&line);
         if let Some(text) = delta {
+            on_delta(&text);
+        }
+    }
+
+    Ok(acc.finish())
+}
