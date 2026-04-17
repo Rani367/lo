@@ -15,3 +15,26 @@ pub enum UiCommand {
     /// `Cancel` invalidate this turn (barge-in).
     StartTurn {
         turn_id: String,
+        history: Vec<ChatMessage>,
+        epoch: u64,
+    },
+    /// Barge-in: cancel any in-flight turn whose epoch is `<= epoch`.
+    Cancel { epoch: u64 },
+    /// Transcribe a PTT/VAD clip (was `IPC.transcribeAudio`). The `id` lets a
+    /// superseded speculative result be dropped.
+    Transcribe { id: u64, samples: Arc<[f32]> },
+    /// Push a settings change through the worker (backend/model restart, etc.).
+    UpdateSettings(Box<lo_core::LoSettings>),
+    /// App is exiting — stop all child servers (was `stopAllServers`).
+    Shutdown,
+}
+
+/// Progress of a single tool invocation (was the `status` field of `LlmToolEvent`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolStatus {
+    Start,
+    Done,
+    Error,
+}
+
+/// worker/ML → UI (was `webContents.send` events). Delivered into winit's
