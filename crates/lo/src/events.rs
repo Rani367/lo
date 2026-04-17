@@ -38,3 +38,26 @@ pub enum ToolStatus {
 }
 
 /// worker/ML → UI (was `webContents.send` events). Delivered into winit's
+/// `ApplicationHandler::user_event`.
+#[derive(Debug, Clone)]
+pub enum AppEvent {
+    /// A streamed assistant prose delta (was `IPC.evtLlmDelta`).
+    LlmDelta { turn_id: String, delta: String },
+    /// A tool started / finished / errored (was `IPC.evtLlmTool`).
+    LlmTool {
+        turn_id: String,
+        tool: String,
+        status: ToolStatus,
+        detail: Option<String>,
+    },
+    /// The turn finished (was `IPC.evtLlmDone`).
+    LlmDone {
+        turn_id: String,
+        result: ChatTurnResult,
+    },
+    /// A timer fired; speak this when idle (was `IPC.evtAnnounce`).
+    Announce(String),
+    /// First-run engine/model download progress (was `IPC.evtModelDownload`).
+    ModelDownload { label: String, pct: Option<u8> },
+    /// Result of a `Transcribe` command, matched by `id`.
+    Transcribed { id: u64, text: String },
