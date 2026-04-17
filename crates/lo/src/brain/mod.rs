@@ -67,3 +67,26 @@ pub async fn stream_completion(
     let mut stream = res.bytes_stream();
 
     'outer: while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("error reading brain response stream")?;
+        buffer.extend_from_slice(&chunk);
+
+        // Split on '\n', feeding each complete line to the accumulator. The
+        // trailing (possibly partial) segment stays in `buffer`.
+        while let Some(nl) = buffer.iter().position(|&b| b == b'\n') {
+            let line: Vec<u8> = buffer.drain(..=nl).collect();
+            let line = String::from_utf8_lossy(&line);
+            let (delta, done) = acc.push_line(&line);
+            if let Some(text) = delta {
+                on_delta(&text);
+            }
+            if done {
+                break 'outer;
+            }
+        }
+    }
+
+    // Flush any final line the stream left without a trailing newline.
+    if !buffer.is_empty() {
+        let line = String::from_utf8_lossy(&buffer);
+        let (delta, _done) = acc.push_line(&line);
+        if let Some(text) = delta {
