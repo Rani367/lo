@@ -39,3 +39,26 @@ impl Default for Captions {
     fn default() -> Self {
         Captions::new()
     }
+}
+
+/// Collapse runs of whitespace and trim, matching `captions.ts`'s `tokenize`
+/// join — keeps the rendered text tidy regardless of streaming chunk boundaries.
+fn normalize(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Multiply a colour's alpha by `fade` (0..1) for the cross-fade.
+fn faded(color: Color32, fade: f32) -> Color32 {
+    let a = (color.a() as f32 * fade.clamp(0.0, 1.0)).round() as u8;
+    Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), a)
+}
+
+/// Draw the captions centred near the bottom of the screen, fading with
+/// `caps.fade`. No-op (other than reserving the area) when both lines are empty.
+pub fn draw(ctx: &egui::Context, caps: &Captions) {
+    if caps.fade <= 0.001 {
+        return;
+    }
+    let you = normalize(&caps.you);
+    let lo = normalize(&caps.lo);
+    if you.is_empty() && lo.is_empty() {
