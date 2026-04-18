@@ -85,3 +85,26 @@ pub fn draw(ctx: &egui::Context, caps: &Captions) {
         .interactable(false)
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
+            ui.set_max_width(max_width);
+            ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                if !you.is_empty() {
+                    // Uppercase, letter-spaced grotesk; the spacing is faked by
+                    // inserting thin spaces between characters of the upper text.
+                    let upper = spaced_upper(&you);
+                    ui.label(
+                        RichText::new(upper)
+                            .font(FontId::proportional(14.0))
+                            .color(faded(ink_dim, caps.fade)),
+                    );
+                    ui.add_space(12.0);
+                }
+                if !lo.is_empty() {
+                    ui.label(
+                        RichText::new(lo)
+                            .font(FontId::proportional(lo_size))
+                            .color(faded(ink, caps.fade)),
+                    );
+                }
+            });
+        });
+}
