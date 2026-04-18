@@ -62,3 +62,26 @@ pub fn draw(ctx: &egui::Context, caps: &Captions) {
     let you = normalize(&caps.you);
     let lo = normalize(&caps.lo);
     if you.is_empty() && lo.is_empty() {
+        return;
+    }
+
+    let screen = ctx.screen_rect();
+    // Width clamps to min(76ch, 84vw) in the CSS; approximate with 84% width capped.
+    let max_width = (screen.width() * 0.84).min(760.0);
+
+    // --ink-dim (#b9a9a6) for the "you" line; --ink (#f6efe9) for Lo's reply.
+    let ink_dim = Color32::from_rgb(0xb9, 0xa9, 0xa6);
+    let ink = Color32::from_rgb(0xf6, 0xef, 0xe9);
+
+    // Lo's serif scales like clamp(22px, 3.6vw, 40px).
+    let lo_size = (screen.width() * 0.036).clamp(22.0, 40.0);
+
+    // Anchor the block 13vh above the screen bottom (CSS `bottom: 13vh`).
+    egui::Area::new(egui::Id::new("lo-captions"))
+        .anchor(
+            egui::Align2::CENTER_BOTTOM,
+            egui::vec2(0.0, -(screen.height() * BOTTOM_FRACTION)),
+        )
+        .interactable(false)
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
