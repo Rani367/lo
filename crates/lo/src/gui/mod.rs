@@ -29,3 +29,26 @@ pub struct Gui {
     // The window we render into (kept so `render` can pump egui-winit input
     // without the orchestrator threading it through every call).
     window: Arc<Window>,
+
+    // --- wgpu ---
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+
+    // --- subsystems ---
+    orb: Orb,
+
+    // --- egui ---
+    egui_ctx: egui::Context,
+    egui_state: egui_winit::State,
+    egui_renderer: egui_wgpu::Renderer,
+
+    // current UI state (drives the chrome accent + dot speed)
+    state: LoState,
+}
+
+impl Gui {
+    /// Build the full GPU + egui stack for `window`.
+    ///
+    /// Creates a wgpu `Instance` → `Surface` (from the `Arc<Window>`) →
