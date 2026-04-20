@@ -52,3 +52,26 @@ impl Gui {
     /// Build the full GPU + egui stack for `window`.
     ///
     /// Creates a wgpu `Instance` → `Surface` (from the `Arc<Window>`) →
+    /// `Adapter`/`Device`/`Queue` (via `pollster::block_on`), configures an
+    /// alpha-capable surface, builds the orb pipeline from `ORB_WGSL`, and inits
+    /// egui (`Context`, `egui_winit::State`, `egui_wgpu::Renderer`).
+    pub fn new(window: Arc<Window>) -> anyhow::Result<Gui> {
+        let size = window.inner_size();
+        let width = size.width.max(1);
+        let height = size.height.max(1);
+
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+
+        // The Arc<Window> satisfies `Into<SurfaceTarget<'static>>`, giving a
+        // 'static surface that owns its window handle.
+        let surface = instance
+            .create_surface(window.clone())
+            .context("create wgpu surface from window")?;
+
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        }))
+        .map_err(|e| anyhow!("no compatible wgpu adapter: {e}"))?;
+
