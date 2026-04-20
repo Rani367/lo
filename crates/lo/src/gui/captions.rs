@@ -108,3 +108,18 @@ pub fn draw(ctx: &egui::Context, caps: &Captions) {
             });
         });
 }
+
+/// Uppercase the text and widen its letter-spacing the way the CSS
+/// `letter-spacing: 0.14em; text-transform: uppercase` does for the "you" line.
+fn spaced_upper(text: &str) -> String {
+    let upper = text.to_uppercase();
+    // Insert a thin space between characters to approximate the tracked spacing.
+    let mut out = String::with_capacity(upper.len() * 2);
+    for (i, ch) in upper.chars().enumerate() {
+        if i > 0 {
+            out.push('\u{2009}'); // thin space
+        }
+        out.push(ch);
+    }
+    out
+}
