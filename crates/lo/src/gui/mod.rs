@@ -75,3 +75,26 @@ impl Gui {
         }))
         .map_err(|e| anyhow!("no compatible wgpu adapter: {e}"))?;
 
+        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            label: Some("lo-device"),
+            required_features: wgpu::Features::empty(),
+            required_limits: wgpu::Limits::downlevel_defaults(),
+            memory_hints: wgpu::MemoryHints::default(),
+            trace: wgpu::Trace::Off,
+        }))
+        .context("request wgpu device")?;
+
+        // Configure the surface. Prefer an sRGB format and an alpha-capable
+        // composite mode so the orchestrator's transparent/frameless window can
+        // blend over the desktop where supported.
+        let caps = surface.get_capabilities(&adapter);
+        let format = caps
+            .formats
+            .iter()
+            .copied()
+            .find(|f| f.is_srgb())
+            .unwrap_or_else(|| {
+                caps.formats
+                    .first()
+                    .copied()
+                    .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb)
