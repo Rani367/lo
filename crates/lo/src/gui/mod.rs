@@ -144,3 +144,26 @@ impl Gui {
     }
 
     /// Reconfigure the surface to a new size. Zero sizes are ignored.
+    pub fn resize(&mut self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        self.config.width = width;
+        self.config.height = height;
+        self.surface.configure(&self.device, &self.config);
+    }
+
+    /// Set the target visual preset for the orb (and the chrome accent).
+    pub fn set_state(&mut self, state: LoState) {
+        self.state = state;
+        self.orb.set_state(state);
+    }
+
+    /// Forward a window event to egui. Returns whether egui consumed it (so the
+    /// orchestrator can skip its own handling of consumed events).
+    pub fn on_window_event(&mut self, window: &Window, event: &winit::event::WindowEvent) -> bool {
+        self.egui_state.on_window_event(window, event).consumed
+    }
+
+    /// Render one frame: ease the orb, draw it (clearing to the dark bg), then an
+    /// egui pass (load) drawing captions + chrome. Submits once and presents.
