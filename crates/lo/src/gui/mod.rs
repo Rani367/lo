@@ -98,3 +98,26 @@ impl Gui {
                     .first()
                     .copied()
                     .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb)
+            });
+
+        let alpha_mode = pick_alpha_mode(&caps.alpha_modes);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format,
+            width,
+            height,
+            present_mode: wgpu::PresentMode::Fifo,
+            desired_maximum_frame_latency: 2,
+            alpha_mode,
+            view_formats: vec![],
+        };
+        surface.configure(&device, &config);
+
+        let orb = Orb::new(&device, format);
+
+        // --- egui ---
+        let egui_ctx = egui::Context::default();
+        let egui_state = egui_winit::State::new(
+            egui_ctx.clone(),
+            egui::ViewportId::ROOT,
