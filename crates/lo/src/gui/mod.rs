@@ -121,3 +121,26 @@ impl Gui {
         let egui_state = egui_winit::State::new(
             egui_ctx.clone(),
             egui::ViewportId::ROOT,
+            window.as_ref(),
+            Some(window.scale_factor() as f32),
+            None,
+            None,
+        );
+        // egui draws with premultiplied alpha; dithering off for the dark field.
+        let egui_renderer = egui_wgpu::Renderer::new(&device, format, None, 1, false);
+
+        Ok(Gui {
+            window,
+            surface,
+            device,
+            queue,
+            config,
+            orb,
+            egui_ctx,
+            egui_state,
+            egui_renderer,
+            state: LoState::Boot,
+        })
+    }
+
+    /// Reconfigure the surface to a new size. Zero sizes are ignored.
