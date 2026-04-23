@@ -167,3 +167,26 @@ impl Gui {
 
     /// Render one frame: ease the orb, draw it (clearing to the dark bg), then an
     /// egui pass (load) drawing captions + chrome. Submits once and presents.
+    ///
+    /// On a lost/outdated surface the surface is reconfigured and the frame is
+    /// skipped (returning `Ok`).
+    pub fn render(
+        &mut self,
+        dt: f32,
+        time: f32,
+        level: f32,
+        spectrum: &[f32; SPEC_BANDS],
+        caps: &Captions,
+    ) -> anyhow::Result<()> {
+        let res = [self.config.width as f32, self.config.height as f32];
+        self.orb.update(dt, time, level, spectrum, res);
+
+        let frame = match self.surface.get_current_texture() {
+            Ok(frame) => frame,
+            Err(wgpu::SurfaceError::Lost) | Err(wgpu::SurfaceError::Outdated) => {
+                // Reconfigure and skip; the next frame recovers.
+                self.surface.configure(&self.device, &self.config);
+                return Ok(());
+            }
+            Err(wgpu::SurfaceError::Timeout) => return Ok(()),
+            Err(e) => return Err(anyhow!("acquire surface texture: {e}")),
