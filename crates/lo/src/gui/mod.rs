@@ -190,3 +190,26 @@ impl Gui {
             }
             Err(wgpu::SurfaceError::Timeout) => return Ok(()),
             Err(e) => return Err(anyhow!("acquire surface texture: {e}")),
+        };
+
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        self.orb.upload(&self.queue);
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("lo-encoder"),
+            });
+
+        // --- orb pass: clear to the dark dawn bg, draw the full-screen triangle.
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("orb-pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
