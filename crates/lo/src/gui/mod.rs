@@ -213,3 +213,26 @@ impl Gui {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: orb::BG[0] as f64,
+                            g: orb::BG[1] as f64,
+                            b: orb::BG[2] as f64,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            self.orb.draw(&mut pass);
+        }
+
+        // --- egui pass: build UI, tessellate, upload, then draw on LOAD.
+        // Pull accumulated input from egui-winit (sets screen rect + ppp).
+        let mut raw_input = self.egui_state.take_egui_input(self.window.as_ref());
+        // Honour the DPR clamp (1.25) so high-density panels don't over-render.
+        if let Some(ppp) = raw_input.viewport().native_pixels_per_point {
+            let clamped = (ppp as f64).min(DPR_CLAMP) as f32;
+            let vid = raw_input.viewport_id;
+            if let Some(v) = raw_input.viewports.get_mut(&vid) {
