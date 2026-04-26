@@ -236,3 +236,26 @@ impl Gui {
             let clamped = (ppp as f64).min(DPR_CLAMP) as f32;
             let vid = raw_input.viewport_id;
             if let Some(v) = raw_input.viewports.get_mut(&vid) {
+                v.native_pixels_per_point = Some(clamped);
+            }
+            self.egui_ctx.set_pixels_per_point(clamped);
+        }
+
+        let state = self.state;
+        let full_output = self.egui_ctx.run(raw_input, |ctx| {
+            draw_chrome(ctx, state);
+            captions::draw(ctx, caps);
+        });
+
+        // Apply egui's platform output (cursor, clipboard, etc.).
+        self.egui_state
+            .handle_platform_output(self.window.as_ref(), full_output.platform_output);
+
+        let clipped = self
+            .egui_ctx
+            .tessellate(full_output.shapes, full_output.pixels_per_point);
+
+        for (id, image_delta) in &full_output.textures_delta.set {
+            self.egui_renderer
+                .update_texture(&self.device, &self.queue, *id, image_delta);
+        }
