@@ -305,3 +305,26 @@ impl Gui {
                 .chain(std::iter::once(encoder.finish())),
         );
         frame.present();
+
+        Ok(())
+    }
+}
+
+/// Pick the most-transparent-capable composite alpha mode the surface supports,
+/// so a frameless/transparent host window can blend over the desktop. Falls back
+/// to `Opaque` (always supported) when nothing better is available.
+fn pick_alpha_mode(modes: &[wgpu::CompositeAlphaMode]) -> wgpu::CompositeAlphaMode {
+    use wgpu::CompositeAlphaMode::*;
+    for preferred in [PreMultiplied, PostMultiplied, Inherit, Auto] {
+        if modes.contains(&preferred) {
+            return preferred;
+        }
+    }
+    Opaque
+}
+
+// --- chrome (wordmark + state dot + hint), ported from index.html / styles.css.
+
+/// Per-state accent colour (the `--accent` CSS var that re-tints the dot/hint).
+fn accent(state: LoState) -> egui::Color32 {
+    use egui::Color32;
