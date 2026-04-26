@@ -282,3 +282,26 @@ impl Gui {
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            // egui's renderer needs a 'static render pass in 0.32.
+            let mut pass = pass.forget_lifetime();
+            self.egui_renderer
+                .render(&mut pass, &clipped, &screen_descriptor);
+        }
+
+        for id in &full_output.textures_delta.free {
+            self.egui_renderer.free_texture(id);
+        }
+
+        // Submit egui's staging copies first, then our encoder, then present.
+        self.queue.submit(
+            user_cmds
+                .into_iter()
+                .chain(std::iter::once(encoder.finish())),
+        );
+        frame.present();
