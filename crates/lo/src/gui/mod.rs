@@ -397,3 +397,26 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
             .interactable(false)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("hold ")
+                            .font(FontId::proportional(12.5))
+                            .color(ink_faint),
+                    );
+                    // a tiny "kbd" chip for SPACE
+                    let kbd = ui.label(
+                        RichText::new(" space ")
+                            .font(FontId::proportional(11.0))
+                            .strong()
+                            .color(Color32::from_rgb(0xb9, 0xa9, 0xa6)),
+                    );
+                    let r: Rect = kbd.rect.expand2(egui::vec2(2.0, 1.0));
+                    ui.painter().rect_stroke(
+                        r,
+                        4.0,
+                        Stroke::new(1.0, Color32::from_rgba_unmultiplied(0xf6, 0xef, 0xe9, 36)),
+                        egui::StrokeKind::Outside,
+                    );
+                    ui.label(
+                        RichText::new(" to talk")
+                            .font(FontId::proportional(12.5))
