@@ -328,3 +328,26 @@ fn pick_alpha_mode(modes: &[wgpu::CompositeAlphaMode]) -> wgpu::CompositeAlphaMo
 /// Per-state accent colour (the `--accent` CSS var that re-tints the dot/hint).
 fn accent(state: LoState) -> egui::Color32 {
     use egui::Color32;
+    match state {
+        LoState::Boot => Color32::from_rgb(0x6b, 0x6f, 0xce), // indigo
+        LoState::Idle => Color32::from_rgb(0x8b, 0x5c, 0xf6), // violet
+        LoState::Listening => Color32::from_rgb(0xff, 0xb5, 0x9e), // peach
+        LoState::Thinking => Color32::from_rgb(0x6b, 0x6f, 0xce), // indigo
+        LoState::Speaking => Color32::from_rgb(0xff, 0x5d, 0x8f), // rose
+        LoState::Error => Color32::from_rgb(0xff, 0x6b, 0x5e), // red
+    }
+}
+
+/// Draw the top-left "lo" wordmark with its pulsing status dot and, while idle/
+/// booting, the "hold space to talk" hint at the bottom.
+fn draw_chrome(ctx: &egui::Context, state: LoState) {
+    use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke};
+
+    let acc = accent(state);
+
+    // The dot pulses faster while Lo is in an active turn (mirrors the CSS
+    // `dotPulse` duration overrides).
+    let period = match state {
+        LoState::Listening | LoState::Speaking => 1.5,
+        LoState::Thinking => 1.0,
+        _ => 3.4,
