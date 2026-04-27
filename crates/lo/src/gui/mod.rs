@@ -374,3 +374,26 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
                     // soft halo
                     painter.circle_filled(
                         center,
+                        dot_r * 2.4,
+                        Color32::from_rgba_unmultiplied(acc.r(), acc.g(), acc.b(), 40),
+                    );
+                    painter.circle_filled(center, dot_r, acc);
+                }
+                // wordmark text (warm ink, slightly transparent like opacity .82)
+                ui.label(
+                    RichText::new("lo")
+                        .font(FontId::proportional(26.0))
+                        .color(Color32::from_rgba_unmultiplied(0xf6, 0xef, 0xe9, 209)),
+                );
+            });
+        });
+
+    // The hint only invites you while Lo waits (idle/boot), matching the CSS
+    // `body:not([data-state='idle']):not([data-state='boot']) .hint { opacity:0 }`.
+    if matches!(state, LoState::Idle | LoState::Boot) {
+        let ink_faint = Color32::from_rgb(0x6f, 0x61, 0x5f);
+        egui::Area::new(egui::Id::new("lo-hint"))
+            .anchor(Align2::CENTER_BOTTOM, egui::vec2(0.0, -30.0))
+            .interactable(false)
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
