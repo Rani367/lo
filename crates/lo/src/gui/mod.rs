@@ -420,3 +420,9 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
                     ui.label(
                         RichText::new(" to talk")
                             .font(FontId::proportional(12.5))
+                            .color(ink_faint),
+                    );
+                });
+            });
+    }
+}
