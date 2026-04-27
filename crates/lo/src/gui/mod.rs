@@ -351,3 +351,26 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
         LoState::Listening | LoState::Speaking => 1.5,
         LoState::Thinking => 1.0,
         _ => 3.4,
+    };
+    let t = ctx.input(|i| i.time);
+    let phase = (t / period).fract() as f32;
+    // 0..1..0 triangle eased into a soft pulse (scale 1.0 -> 1.32 -> 1.0).
+    let pulse = 0.5 - 0.5 * (phase * std::f32::consts::TAU).cos();
+    let dot_r = 4.5 * (1.0 + 0.32 * pulse);
+
+    // Wordmark area, top-left (padding ~26px, baseline ~30px down).
+    egui::Area::new(egui::Id::new("lo-wordmark"))
+        .fixed_pos(Pos2::new(26.0, 18.0))
+        .interactable(false)
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                // glowing dot
+                let (rect, _) = ui
+                    .allocate_exact_size(egui::vec2(dot_r * 2.0 + 4.0, 26.0), egui::Sense::hover());
+                let center = Pos2::new(rect.left() + dot_r + 2.0, rect.center().y);
+                {
+                    let painter = ui.painter();
+                    // soft halo
+                    painter.circle_filled(
+                        center,
