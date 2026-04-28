@@ -38,3 +38,26 @@ pub const BG: Rgb = [0.039, 0.027, 0.031];
 /// the shader does not currently read them).
 pub const SPEC_BANDS: usize = 16;
 
+/// Broad ambient lift on the dark field — see the long comment in `core.ts`. It
+/// keeps the upper field a dim glow so high-contrast panels don't crush it into a
+/// hard black rectangle. `0.0` is the original look.
+pub const FIELD_LIFT: f32 = 0.06;
+
+/// Clamp the device-pixel-ratio so 4K/Retina panels don't over-render the field.
+pub const DPR_CLAMP: f64 = 1.25;
+
+/// How long (seconds) the body takes to bloom up on launch (`reveal`).
+const BOOT_SECONDS: f32 = 1.1;
+
+/// The eased visual parameters for a single render frame. State changes ease the
+/// `cur` toward the `target` preset; the shader reads these every frame.
+#[derive(Debug, Clone, Copy)]
+pub struct Vis {
+    /// Overall brightness multiplier.
+    pub intensity: f32,
+    /// Boundary turbulence.
+    pub turb: f32,
+    /// Heartbeat amount.
+    pub pulse: f32,
+    /// Slow idle breath.
+    pub breathe: f32,
