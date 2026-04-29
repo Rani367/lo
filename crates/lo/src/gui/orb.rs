@@ -130,3 +130,26 @@ impl Vis {
                 turb: 0.32,
                 pulse: 0.2,
                 breathe: 0.7,
+                gain: 0.2,
+                core: [1.0, 0.7, 0.66],
+                mid: RED_DESAT,
+                edge: INDIGO,
+            },
+        }
+    }
+
+    /// Ease `self` toward `target` by factor `k` (`k = (dt*4).min(1.0)` upstream).
+    pub fn ease_toward(&mut self, target: &Vis, k: f32) {
+        self.intensity += (target.intensity - self.intensity) * k;
+        self.turb += (target.turb - self.turb) * k;
+        self.pulse += (target.pulse - self.pulse) * k;
+        self.breathe += (target.breathe - self.breathe) * k;
+        self.gain += (target.gain - self.gain) * k;
+        for i in 0..3 {
+            self.core[i] += (target.core[i] - self.core[i]) * k;
+            self.mid[i] += (target.mid[i] - self.mid[i]) * k;
+            self.edge[i] += (target.edge[i] - self.edge[i]) * k;
+        }
+    }
+}
+
