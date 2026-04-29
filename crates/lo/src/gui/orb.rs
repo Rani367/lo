@@ -61,3 +61,26 @@ pub struct Vis {
     pub pulse: f32,
     /// Slow idle breath.
     pub breathe: f32,
+    /// How hard audio drives the surface (folded into the spectrum; host-side only).
+    pub gain: f32,
+    /// Hot centre colour.
+    pub core: Rgb,
+    /// Body colour.
+    pub mid: Rgb,
+    /// Rim / halo colour.
+    pub edge: Rgb,
+}
+
+impl Vis {
+    /// The preset for a given UI state (the 6 `STATES` entries from `core.ts`).
+    pub fn preset(state: LoState) -> Vis {
+        match state {
+            LoState::Boot => Vis {
+                intensity: 0.32,
+                turb: 0.5,
+                pulse: 0.3,
+                breathe: 0.6,
+                gain: 0.2,
+                core: WARM_WHITE,
+                mid: ROSE,
+                edge: VIOLET,
