@@ -176,3 +176,26 @@ pub struct Uniforms {
     /// Eased intensity.
     pub intensity: f32,
     /// Eased turbulence.
+    pub turb: f32,
+    /// Eased pulse.
+    pub pulse: f32,
+    /// Eased breathe.
+    pub breathe: f32,
+    /// Boot reveal (0..1, eased over ~1.1s).
+    pub reveal: f32,
+    /// Ambient field lift.
+    pub lift: f32,
+    /// Padding to align the vec4 block to offset 48.
+    pub _pad0: [f32; 2],
+    /// Hot centre colour (xyz used).
+    pub core: [f32; 4],
+    /// Body colour (xyz used).
+    pub mid: [f32; 4],
+    /// Rim colour (xyz used).
+    pub edge: [f32; 4],
+    /// Background colour (xyz used).
+    pub bg: [f32; 4],
+    /// 16 spectrum bands packed as 4×vec4 (currently unread by the shader).
+    pub spec: [[f32; 4]; 4],
+}
+
