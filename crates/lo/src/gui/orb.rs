@@ -153,3 +153,26 @@ impl Vis {
     }
 }
 
+/// Host mirror of the shader's `Uniforms` struct. The byte layout MUST match
+/// `orb.wgsl` exactly (std140-style); `#[repr(C)]` + the explicit padding fields
+/// below keep the vec4 block 16-byte aligned. Total size is asserted to be 176.
+///
+/// ```text
+///   0   res:vec2  8 time  12 level
+///   16  intensity turb pulse breathe
+///   32  reveal lift  40 _pad0:vec2
+///   48  core:vec4  64 mid  80 edge  96 bg
+///   112 spec: [vec4;4]   -> 176 bytes
+/// ```
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
+pub struct Uniforms {
+    /// Render-target resolution in physical pixels.
+    pub res: [f32; 2],
+    /// Animation time (seconds).
+    pub time: f32,
+    /// Smoothed audio level (0..1).
+    pub level: f32,
+    /// Eased intensity.
+    pub intensity: f32,
+    /// Eased turbulence.
