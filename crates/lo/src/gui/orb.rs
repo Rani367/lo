@@ -199,3 +199,26 @@ pub struct Uniforms {
     pub spec: [[f32; 4]; 4],
 }
 
+// Compile-time guarantee that the host struct matches the documented WGSL layout.
+const _: () = assert!(core::mem::size_of::<Uniforms>() == 176);
+
+impl Default for Uniforms {
+    fn default() -> Self {
+        Uniforms {
+            res: [1.0, 1.0],
+            time: 0.0,
+            level: 0.0,
+            intensity: 0.0,
+            turb: 0.0,
+            pulse: 0.0,
+            breathe: 0.0,
+            reveal: 0.0,
+            lift: FIELD_LIFT,
+            _pad0: [0.0, 0.0],
+            core: [0.0; 4],
+            mid: [0.0; 4],
+            edge: [0.0; 4],
+            bg: [BG[0], BG[1], BG[2], 1.0],
+            spec: [[0.0; 4]; 4],
+        }
+    }
