@@ -222,3 +222,26 @@ impl Default for Uniforms {
             spec: [[0.0; 4]; 4],
         }
     }
+}
+
+/// Cubic ease-out used for the boot reveal (`1 - (1-x)^3`).
+pub fn ease_out(x: f32) -> f32 {
+    let inv = 1.0 - x;
+    1.0 - inv * inv * inv
+}
+
+/// The orb's GPU resources: a full-screen-triangle pipeline driven by one uniform
+/// buffer, plus the eased visual state and audio smoothing the host updates each
+/// frame.
+pub struct Orb {
+    pipeline: wgpu::RenderPipeline,
+    bind_group: wgpu::BindGroup,
+    uniform_buf: wgpu::Buffer,
+
+    cur: Vis,
+    target: Vis,
+    level: f32,
+    boot_t: f32,
+    spec: [f32; SPEC_BANDS],
+    uniforms: Uniforms,
+}
