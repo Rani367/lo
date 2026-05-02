@@ -245,3 +245,26 @@ pub struct Orb {
     spec: [f32; SPEC_BANDS],
     uniforms: Uniforms,
 }
+
+impl Orb {
+    /// Build the render pipeline from [`lo_core::shaders::ORB_WGSL`] for the given
+    /// surface `format`. Creates the uniform buffer + bind group.
+    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Orb {
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("orb-shader"),
+            source: wgpu::ShaderSource::Wgsl(lo_core::shaders::ORB_WGSL.into()),
+        });
+
+        let uniforms = Uniforms::default();
+        let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("orb-uniforms"),
+            contents: bytemuck::bytes_of(&uniforms),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("orb-bgl"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
