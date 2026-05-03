@@ -314,3 +314,26 @@ impl Orb {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 ..Default::default()
             },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        Orb {
+            pipeline,
+            bind_group,
+            uniform_buf,
+            cur: Vis::preset(LoState::Boot),
+            target: Vis::preset(LoState::Boot),
+            level: 0.0,
+            boot_t: 0.0,
+            spec: [0.0; SPEC_BANDS],
+            uniforms,
+        }
+    }
+
+    /// Set the target preset the eased state will move toward.
+    pub fn set_state(&mut self, state: LoState) {
+        self.target = Vis::preset(state);
+    }
