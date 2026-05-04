@@ -337,3 +337,26 @@ impl Orb {
     pub fn set_state(&mut self, state: LoState) {
         self.target = Vis::preset(state);
     }
+
+    /// Advance the eased state + audio smoothing and recompute the uniform values.
+    /// `res` is the surface size in physical pixels.
+    pub fn update(
+        &mut self,
+        dt: f32,
+        time: f32,
+        level: f32,
+        spectrum: &[f32; SPEC_BANDS],
+        res: [f32; 2],
+    ) {
+        // Boot reveal eases up over ~1.1s; the shader sees the cubic ease-out.
+        self.boot_t = (self.boot_t + dt / BOOT_SECONDS).min(1.0);
+        // Smooth the audio level (k = min(1, dt*9), per core.ts).
+        self.level += (level - self.level) * (dt * 9.0).min(1.0);
+
+        let k = (dt * 4.0).min(1.0);
+        self.cur.ease_toward(&self.target, k);
+
+        self.update_spectrum(spectrum, self.cur.gain);
+
+        let reveal = ease_out(self.boot_t);
+        let u = &mut self.uniforms;
