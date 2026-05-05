@@ -360,3 +360,26 @@ impl Orb {
 
         let reveal = ease_out(self.boot_t);
         let u = &mut self.uniforms;
+        u.res = res;
+        u.time = time;
+        u.level = self.level;
+        u.intensity = self.cur.intensity;
+        u.turb = self.cur.turb;
+        u.pulse = self.cur.pulse;
+        u.breathe = self.cur.breathe;
+        u.reveal = reveal;
+        u.lift = FIELD_LIFT;
+        u.core = [self.cur.core[0], self.cur.core[1], self.cur.core[2], 1.0];
+        u.mid = [self.cur.mid[0], self.cur.mid[1], self.cur.mid[2], 1.0];
+        u.edge = [self.cur.edge[0], self.cur.edge[1], self.cur.edge[2], 1.0];
+        u.bg = [BG[0], BG[1], BG[2], 1.0];
+        for b in 0..SPEC_BANDS {
+            u.spec[b / 4][b % 4] = self.spec[b];
+        }
+    }
+
+    /// Fold the incoming 16-band spectrum into the smoothed `spec` (gain-weighted),
+    /// mirroring `core.ts`'s `updateSpectrum` smoothing toward the supplied bands.
+    fn update_spectrum(&mut self, spectrum: &[f32; SPEC_BANDS], gain: f32) {
+        for (sp, &band) in self.spec.iter_mut().zip(spectrum.iter()) {
+            let v = band * gain;
