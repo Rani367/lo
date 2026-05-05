@@ -383,3 +383,19 @@ impl Orb {
     fn update_spectrum(&mut self, spectrum: &[f32; SPEC_BANDS], gain: f32) {
         for (sp, &band) in self.spec.iter_mut().zip(spectrum.iter()) {
             let v = band * gain;
+            *sp += (v - *sp) * 0.4;
+        }
+    }
+
+    /// Upload the current uniforms to the GPU. Call once per frame before drawing.
+    pub fn upload(&self, queue: &wgpu::Queue) {
+        queue.write_buffer(&self.uniform_buf, 0, bytemuck::bytes_of(&self.uniforms));
+    }
+
+    /// Draw the full-screen triangle into an already-begun render pass.
+    pub fn draw(&self, pass: &mut wgpu::RenderPass<'_>) {
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.draw(0..3, 0..1);
+    }
+}
