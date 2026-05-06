@@ -28,3 +28,26 @@ pub struct ListenCtx {
     pub audio: AudioHandle,
     pub proxy: EventLoopProxy<AppEvent>,
     pub settings: LoSettings,
+    pub ptt_active: Arc<AtomicBool>,
+}
+
+pub fn spawn(ctx: ListenCtx) {
+    let _ = std::thread::Builder::new()
+        .name("lo-listen".into())
+        .spawn(move || run(ctx));
+}
+
+fn run(ctx: ListenCtx) {
+    let ListenCtx {
+        audio,
+        proxy,
+        settings,
+        ptt_active,
+    } = ctx;
+    let mode = settings.activation_mode;
+    let model = settings.asr_model.clone();
+
+    let mut asr: Option<ml::Asr> = None;
+    let mut asr_failed = false;
+
+    let mut vad: Option<ml::Vad> = if mode == ActivationMode::Vad {
