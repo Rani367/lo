@@ -97,3 +97,26 @@ fn run(ctx: ListenCtx) {
                             tracing::info!("wake word detected");
                         }
                     }
+                }
+            }
+            ActivationMode::Ptt => {
+                let active = ptt_active.load(Ordering::SeqCst);
+                if active {
+                    ptt_clip.extend_from_slice(&scratch);
+                    if ptt_clip.len() > MAX_CLIP_SAMPLES {
+                        let cut = ptt_clip.len() - MAX_CLIP_SAMPLES;
+                        ptt_clip.drain(0..cut);
+                    }
+                } else if ptt_was {
+                    // Falling edge: finalize the clip.
+                    let clip = std::mem::take(&mut ptt_clip);
+                    let text = if clip.len() >= MIN_PTT_SAMPLES {
+                        transcribe(&mut asr, &mut asr_failed, &model, &clip)
+                    } else {
+                        String::new()
+                    };
+                    let _ = proxy.send_event(AppEvent::Transcribed { id: 0, text });
+                }
+                ptt_was = active;
+            }
+            ActivationMode::Vad => {
