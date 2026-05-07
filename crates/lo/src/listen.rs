@@ -74,3 +74,26 @@ fn run(ctx: ListenCtx) {
     let mut ptt_was = false;
     let mut frame_buf: Vec<f32> = Vec::new();
     let mut scratch: Vec<f32> = Vec::new();
+
+    loop {
+        scratch.clear();
+        audio.drain_capture_16k(&mut scratch);
+        if scratch.is_empty() {
+            std::thread::sleep(Duration::from_millis(8));
+        }
+
+        match mode {
+            ActivationMode::Wake => {
+                if let Some(w) = wake.as_mut() {
+                    let n = w.frame_length().max(1);
+                    frame_buf.extend_from_slice(&scratch);
+                    while frame_buf.len() >= n {
+                        let frame: Vec<i16> = frame_buf
+                            .drain(0..n)
+                            .map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
+                            .collect();
+                        if w.process_i16(&frame) {
+                            // Future: a wake fires → begin a VAD-style listen.
+                            tracing::info!("wake word detected");
+                        }
+                    }
