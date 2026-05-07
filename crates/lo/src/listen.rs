@@ -51,3 +51,26 @@ fn run(ctx: ListenCtx) {
     let mut asr_failed = false;
 
     let mut vad: Option<ml::Vad> = if mode == ActivationMode::Vad {
+        match ml::new_vad(None) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                tracing::warn!("VAD unavailable, falling back to idle: {e:#}");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // Wake word (best-effort): DisabledWake never fires until Porcupine is
+    // vendored, so `wake` mode currently idles — use PTT meanwhile.
+    let mut wake: Option<Box<dyn WakeWord>> = if mode == ActivationMode::Wake {
+        Some(Box::new(DisabledWake))
+    } else {
+        None
+    };
+
+    let mut ptt_clip: Vec<f32> = Vec::new();
+    let mut ptt_was = false;
+    let mut frame_buf: Vec<f32> = Vec::new();
+    let mut scratch: Vec<f32> = Vec::new();
