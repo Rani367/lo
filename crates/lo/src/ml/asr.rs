@@ -43,3 +43,26 @@ pub fn ggml_file_for(model_setting: &str) -> String {
     } else if lower.contains("medium") {
         if lower.contains(".en") {
             "ggml-medium.en.bin".to_string()
+        } else {
+            "ggml-medium.bin".to_string()
+        }
+    } else if lower.contains("small") {
+        if lower.contains(".en") {
+            "ggml-small.en.bin".to_string()
+        } else {
+            "ggml-small.bin".to_string()
+        }
+    } else if lower.contains("tiny") {
+        if lower.contains(".en") {
+            "ggml-tiny.en.bin".to_string()
+        } else {
+            "ggml-tiny.bin".to_string()
+        }
+    } else if lower.contains("base") && !lower.contains(".en") && lower.contains("whisper") {
+        // A multilingual "base" was explicitly requested.
+        "ggml-base.bin".to_string()
+    } else {
+        // Parakeet (Apple Silicon default) and everything unrecognised → base.en.
+        DEFAULT_GGML.to_string()
+    }
+}
