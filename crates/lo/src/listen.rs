@@ -166,3 +166,4 @@ fn transcribe(
         }),
         None => String::new(),
     }
+}
