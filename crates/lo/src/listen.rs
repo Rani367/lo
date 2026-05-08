@@ -143,3 +143,26 @@ fn run(ctx: ListenCtx) {
 }
 
 /// Lazily load whisper, then transcribe; returns "" on any failure (the UI then
+/// simply returns to idle).
+fn transcribe(
+    asr: &mut Option<ml::Asr>,
+    failed: &mut bool,
+    model: &str,
+    samples: &[f32],
+) -> String {
+    if asr.is_none() && !*failed {
+        match ml::load_asr(model, None) {
+            Ok(a) => *asr = Some(a),
+            Err(e) => {
+                tracing::warn!("ASR unavailable: {e:#}");
+                *failed = true;
+            }
+        }
+    }
+    match asr.as_mut() {
+        Some(a) => a.transcribe(samples).unwrap_or_else(|e| {
+            tracing::warn!("transcription failed: {e:#}");
+            String::new()
+        }),
+        None => String::new(),
+    }
