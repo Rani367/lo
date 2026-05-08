@@ -66,3 +66,26 @@ pub fn ggml_file_for(model_setting: &str) -> String {
         DEFAULT_GGML.to_string()
     }
 }
+
+/// Whether a GGML filename is an English-only model (`*.en.bin`), used to pin the
+/// decode language to `en` and skip language auto-detection.
+fn is_english_only(ggml_file: &str) -> bool {
+    ggml_file.to_lowercase().contains(".en.")
+}
+
+// ───────────────────────────── real impl ─────────────────────────────
+
+#[cfg(feature = "asr-whisper")]
+mod imp {
+    use super::{ggml_file_for, is_english_only, Progress, WHISPER_REPO};
+    use crate::ml::download;
+    use anyhow::Context;
+    use whisper_rs::{
+        FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
+    };
+
+    /// A loaded whisper.cpp model. The [`WhisperContext`] holds the weights; a
+    /// fresh [`WhisperState`] is created per `transcribe` call (cheap relative to
+    /// loading, and keeps decodes independent — matching the TS one-shot calls).
+    pub struct Asr {
+        ctx: WhisperContext,
