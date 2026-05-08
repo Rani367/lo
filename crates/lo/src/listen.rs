@@ -120,3 +120,26 @@ fn run(ctx: ListenCtx) {
                 ptt_was = active;
             }
             ActivationMode::Vad => {
+                if let Some(v) = vad.as_mut() {
+                    frame_buf.extend_from_slice(&scratch);
+                    while frame_buf.len() >= VAD_FRAME {
+                        let frame: Vec<f32> = frame_buf.drain(0..VAD_FRAME).collect();
+                        for ev in v.push_frame(&frame) {
+                            if let VadEvent::SpeechEnd(clip) = ev {
+                                let text = transcribe(&mut asr, &mut asr_failed, &model, &clip);
+                                if !text.trim().is_empty() {
+                                    let _ = proxy.send_event(AppEvent::Transcribed { id: 0, text });
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // No VAD engine — drop frames so the ring doesn't overflow.
+                    frame_buf.clear();
+                }
+            }
+        }
+    }
+}
+
+/// Lazily load whisper, then transcribe; returns "" on any failure (the UI then
