@@ -20,3 +20,26 @@ use crate::ml::download::Progress;
 pub const WHISPER_REPO: &str = "ggerganov/whisper.cpp";
 
 /// Default GGML model — small, fast, accurate for short push-to-talk clips.
+/// Mirrors the TS default `onnx-community/whisper-base.en`.
+pub const DEFAULT_GGML: &str = "ggml-base.en.bin";
+
+/// Map an `asr_model` setting to a GGML filename in [`WHISPER_REPO`].
+///
+/// The settings ship MLX ids (`mlx-community/parakeet-*`, `mlx-community/whisper-*`)
+/// that whisper.cpp can't load, so we translate them to the nearest GGML weight.
+/// Anything already shaped like a `ggml-*.bin` filename is passed through verbatim.
+pub fn ggml_file_for(model_setting: &str) -> String {
+    let m = model_setting.trim();
+    let lower = m.to_lowercase();
+
+    // Explicit ggml filename — honour it.
+    if lower.ends_with(".bin") && lower.contains("ggml") {
+        return m.to_string();
+    }
+
+    // Map by capability keywords found in the (MLX/HF) id.
+    if lower.contains("large") || lower.contains("turbo") {
+        "ggml-large-v3-turbo.bin".to_string()
+    } else if lower.contains("medium") {
+        if lower.contains(".en") {
+            "ggml-medium.en.bin".to_string()
