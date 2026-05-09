@@ -89,3 +89,26 @@ mod imp {
     /// loading, and keeps decodes independent — matching the TS one-shot calls).
     pub struct Asr {
         ctx: WhisperContext,
+        english_only: bool,
+    }
+
+    impl Asr {
+        /// Transcribe a 16 kHz mono f32 clip to trimmed text.
+        pub fn transcribe(&mut self, samples_16k_mono: &[f32]) -> anyhow::Result<String> {
+            if samples_16k_mono.is_empty() {
+                return Ok(String::new());
+            }
+
+            let mut state: WhisperState = self
+                .ctx
+                .create_state()
+                .context("creating whisper decode state")?;
+
+            let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+            // English-only weights: pin the language so no detection pass runs.
+            if self.english_only {
+                params.set_language(Some("en"));
+            }
+            params.set_translate(false);
+            // Quiet: whisper.cpp otherwise prints to stdout/stderr.
+            params.set_print_special(false);
