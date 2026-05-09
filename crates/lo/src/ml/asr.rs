@@ -112,3 +112,26 @@ mod imp {
             params.set_translate(false);
             // Quiet: whisper.cpp otherwise prints to stdout/stderr.
             params.set_print_special(false);
+            params.set_print_progress(false);
+            params.set_print_realtime(false);
+            params.set_print_timestamps(false);
+            params.set_suppress_blank(true);
+            // Each clip is an independent utterance.
+            params.set_no_context(true);
+            // Use all but one core, like whisper.cpp's defaults, min 1.
+            let threads = std::thread::available_parallelism()
+                .map(|n| (n.get() as i32 - 1).max(1))
+                .unwrap_or(4);
+            params.set_n_threads(threads);
+
+            state
+                .full(params, samples_16k_mono)
+                .context("running whisper inference")?;
+
+            let n = state.full_n_segments();
+            let mut out = String::new();
+            for i in 0..n {
+                if let Some(seg) = state.get_segment(i) {
+                    // Lossy: a rare invalid byte shouldn't drop the whole clip.
+                    if let Ok(text) = seg.to_str_lossy() {
+                        out.push_str(&text);
