@@ -135,3 +135,26 @@ mod imp {
                     // Lossy: a rare invalid byte shouldn't drop the whole clip.
                     if let Ok(text) = seg.to_str_lossy() {
                         out.push_str(&text);
+                    }
+                }
+            }
+            Ok(out.trim().to_string())
+        }
+    }
+
+    /// Download the mapped GGML weight and build a [`WhisperContext`] once.
+    pub fn load_asr(model_setting: &str, progress: Progress<'_>) -> anyhow::Result<Asr> {
+        let ggml_file = ggml_file_for(model_setting);
+        let english_only = is_english_only(&ggml_file);
+
+        let path = download::fetch(WHISPER_REPO, &ggml_file, "HEARING", progress)
+            .context("fetching whisper GGML weights")?;
+        let path_str = path
+            .to_str()
+            .context("whisper model path is not valid UTF-8")?;
+
+        let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
+            .with_context(|| format!("loading whisper model {ggml_file}"))?;
+
+        Ok(Asr { ctx, english_only })
+    }
