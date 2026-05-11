@@ -181,3 +181,7 @@ mod imp {
 
     pub fn load_asr(_model_setting: &str, _progress: Progress<'_>) -> anyhow::Result<Asr> {
         anyhow::bail!("speech-to-text unavailable: built without the `asr-whisper` feature")
+    }
+}
+
+pub use imp::{load_asr, Asr};
