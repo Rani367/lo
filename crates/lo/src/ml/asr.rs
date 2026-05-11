@@ -158,3 +158,26 @@ mod imp {
 
         Ok(Asr { ctx, english_only })
     }
+}
+
+// ───────────────────────────── stub ─────────────────────────────
+
+#[cfg(not(feature = "asr-whisper"))]
+mod imp {
+    use super::Progress;
+
+    /// Placeholder ASR that exists only so the public type names resolve when the
+    /// `asr-whisper` feature is off. It is never constructed — [`load_asr`] errs
+    /// before producing one.
+    pub struct Asr {
+        _never: std::convert::Infallible,
+    }
+
+    impl Asr {
+        pub fn transcribe(&mut self, _samples_16k_mono: &[f32]) -> anyhow::Result<String> {
+            match self._never {}
+        }
+    }
+
+    pub fn load_asr(_model_setting: &str, _progress: Progress<'_>) -> anyhow::Result<Asr> {
+        anyhow::bail!("speech-to-text unavailable: built without the `asr-whisper` feature")
