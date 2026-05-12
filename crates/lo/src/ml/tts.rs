@@ -12,3 +12,26 @@
 //! through the crate's `Voice` enum (each v1.0 variant carries an `f32` speed).
 //!
 //! Feature-gated behind `tts-kokoro`; with the feature off, [`load_tts`] returns a
+//! descriptive error.
+
+use crate::ml::download::Progress;
+
+/// HF mirror hosting Kokoro weights in the `kokoro-onnx` (thewh1teagle) layout
+/// that `kokoro-tts` reads: a single ONNX graph + a single combined voices blob.
+pub const KOKORO_REPO: &str = "leonelhs/kokoro-thewh1teagle";
+
+/// The full-precision v1.0 ONNX graph file in [`KOKORO_REPO`].
+pub const KOKORO_MODEL_FILE: &str = "kokoro-v1.0.onnx";
+
+/// The combined v1.0 voice-style binary (all voices) in [`KOKORO_REPO`].
+pub const KOKORO_VOICES_FILE: &str = "voices-v1.0.bin";
+
+/// Kokoro's fixed output sample rate.
+pub const KOKORO_SAMPLE_RATE: u32 = 24_000;
+
+// ───────────────────────────── real impl ─────────────────────────────
+
+#[cfg(feature = "tts-kokoro")]
+mod imp {
+    use super::{Progress, KOKORO_MODEL_FILE, KOKORO_REPO, KOKORO_SAMPLE_RATE, KOKORO_VOICES_FILE};
+    use crate::ml::download;
