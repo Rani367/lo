@@ -86,3 +86,4 @@ pub fn fetch(
     _progress: Progress<'_>,
 ) -> anyhow::Result<PathBuf> {
     anyhow::bail!("model download unavailable: built without any ML feature")
+}
