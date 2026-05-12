@@ -20,3 +20,12 @@
 //! worker, or event layers.
 
 pub mod asr;
+pub mod download;
+pub mod tts;
+pub mod vad;
+pub mod wakeword;
+
+pub use asr::{load_asr, Asr};
+pub use tts::{load_tts, Tts};
+pub use vad::{new_vad, Vad, VadEvent};
+pub use wakeword::{DisabledWake, WakeWord};
