@@ -40,3 +40,26 @@ pub fn report(progress: Progress<'_>, label: &str, pct: Option<u8>) {
 /// we emit a single indeterminate tick before the (potentially long) blocking
 /// download and a `100%` tick once it lands.
 #[cfg(any(
+    feature = "asr-whisper",
+    feature = "tts-kokoro",
+    feature = "vad-silero"
+))]
+pub fn fetch(
+    repo: &str,
+    file: &str,
+    label: &str,
+    progress: Progress<'_>,
+) -> anyhow::Result<PathBuf> {
+    use hf_hub::api::sync::ApiBuilder;
+
+    let cache_dir = lo_core::config::paths::cache_dir();
+    std::fs::create_dir_all(&cache_dir)
+        .with_context(|| format!("creating model cache dir {}", cache_dir.display()))?;
+
+    report(progress, label, None);
+
+    let api = ApiBuilder::new()
+        .with_cache_dir(cache_dir)
+        .build()
+        .context("building hf-hub sync api")?;
+
