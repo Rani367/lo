@@ -35,3 +35,26 @@ pub const KOKORO_SAMPLE_RATE: u32 = 24_000;
 mod imp {
     use super::{Progress, KOKORO_MODEL_FILE, KOKORO_REPO, KOKORO_SAMPLE_RATE, KOKORO_VOICES_FILE};
     use crate::ml::download;
+    use anyhow::Context;
+    use kokoro_tts::{KokoroTts, Voice};
+
+    /// A loaded Kokoro voice synthesiser.
+    ///
+    /// `kokoro-tts` is async and `KokoroTts::new` uses `tokio::fs`, so we own a
+    /// dedicated current-thread Tokio runtime to drive both load and synthesis.
+    /// Holding our own runtime keeps the subsystem self-contained and works whether
+    /// or not the caller is already inside a Tokio context (we drive our own
+    /// reactor rather than relying on `Handle::current`).
+    pub struct Tts {
+        tts: KokoroTts,
+        /// The configured voice name (e.g. `"af_heart"`), lower-cased.
+        voice: String,
+        /// Runtime used to poll Kokoro's async methods to completion.
+        rt: tokio::runtime::Runtime,
+    }
+
+    impl Tts {
+        /// Synthesise one chunk of text to `(mono f32 PCM, 24000)`.
+        ///
+        /// `speed` is the Kokoro speed multiplier (>1 faster, pitch unchanged); it
+        /// is carried inside the v1.0 [`Voice`] variant. The `kokoro-tts` API is
