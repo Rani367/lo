@@ -63,3 +63,26 @@ pub fn fetch(
         .build()
         .context("building hf-hub sync api")?;
 
+    let path = api
+        .model(repo.to_string())
+        .get(file)
+        .with_context(|| format!("downloading {file} from HuggingFace repo {repo}"))?;
+
+    report(progress, label, Some(100));
+    Ok(path)
+}
+
+/// Stub used when no ML feature is enabled — keeps the module compiling but never
+/// reaches a real download.
+#[cfg(not(any(
+    feature = "asr-whisper",
+    feature = "tts-kokoro",
+    feature = "vad-silero"
+)))]
+pub fn fetch(
+    _repo: &str,
+    _file: &str,
+    _label: &str,
+    _progress: Progress<'_>,
+) -> anyhow::Result<PathBuf> {
+    anyhow::bail!("model download unavailable: built without any ML feature")
