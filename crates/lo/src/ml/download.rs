@@ -17,3 +17,26 @@ use std::path::PathBuf;
     feature = "vad-silero"
 ))]
 use anyhow::Context;
+
+/// An optional progress sink: `(label, percent)`. `percent` is `None` when the
+/// total size is unknown (indeterminate phase). Must be `Send + Sync` so the
+/// worker thread can hold it.
+pub type Progress<'a> = Option<&'a (dyn Fn(&str, Option<u8>) + Send + Sync)>;
+
+/// Emit a progress tick if a callback is installed. Centralised so the engines
+/// don't each repeat the `if let Some(cb)` dance.
+#[inline]
+pub fn report(progress: Progress<'_>, label: &str, pct: Option<u8>) {
+    if let Some(cb) = progress {
+        cb(label, pct);
+    }
+}
+
+/// Fetch a single file from a HuggingFace model repo into Lo's cache dir,
+/// returning its local path. Cached after the first download.
+///
+/// `label` is the prefix the progress callback should display (e.g. `"HEARING"`,
+/// `"VOICE"`, `"VAD"`). hf-hub's sync API does not surface byte-level progress, so
+/// we emit a single indeterminate tick before the (potentially long) blocking
+/// download and a `100%` tick once it lands.
+#[cfg(any(
