@@ -58,3 +58,26 @@ mod imp {
         ///
         /// `speed` is the Kokoro speed multiplier (>1 faster, pitch unchanged); it
         /// is carried inside the v1.0 [`Voice`] variant. The `kokoro-tts` API is
+        /// async, so we block on it — this runs on the worker thread, never the UI
+        /// thread.
+        pub fn synth(&mut self, text: &str, speed: f32) -> anyhow::Result<(Vec<f32>, u32)> {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                return Ok((Vec::new(), KOKORO_SAMPLE_RATE));
+            }
+
+            let voice = voice_for(&self.voice, speed)
+                .with_context(|| format!("unknown Kokoro voice {:?}", self.voice))?;
+
+            let (samples, _duration) = self
+                .rt
+                .block_on(self.tts.synth(trimmed, voice))
+                .context("Kokoro synthesis failed")?;
+
+            Ok((samples, KOKORO_SAMPLE_RATE))
+        }
+    }
+
+    /// Download the Kokoro graph + voices blob and load the synthesiser once.
+    ///
+    /// `model_setting` is accepted for parity with the settings/ASR path but is not
