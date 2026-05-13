@@ -104,3 +104,26 @@ mod imp {
             .build()
             .context("building Tokio runtime for Kokoro")?;
 
+        let tts = rt
+            .block_on(KokoroTts::new(model_path, voices_path))
+            .context("loading Kokoro TTS model")?;
+
+        Ok(Tts {
+            tts,
+            voice: voice_key,
+            rt,
+        })
+    }
+
+    /// Map a voice name (`"af_heart"`, …) + speed to the v1.0 [`Voice`] variant.
+    ///
+    /// The crate's `Voice` enum has no `FromStr`, so we match the names Lo exposes
+    /// (see `lo_core::config::options::VOICES`) plus a handful of common extras.
+    /// Each v1.0 variant takes the speed as its `f32` payload.
+    fn voice_for(name: &str, speed: f32) -> Option<Voice> {
+        let v = match name {
+            "af_heart" => Voice::AfHeart(speed),
+            "af_alloy" => Voice::AfAlloy(speed),
+            "af_aoede" => Voice::AfAoede(speed),
+            "af_bella" => Voice::AfBella(speed),
+            "af_jessica" => Voice::AfJessica(speed),
