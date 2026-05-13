@@ -173,3 +173,12 @@ mod imp {
     }
 
     pub fn load_tts(
+        _model_setting: &str,
+        _voice: &str,
+        _progress: Progress<'_>,
+    ) -> anyhow::Result<Tts> {
+        anyhow::bail!("text-to-speech unavailable: built without the `tts-kokoro` feature")
+    }
+}
+
+pub use imp::{load_tts, Tts};
