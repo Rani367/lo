@@ -81,3 +81,26 @@ mod imp {
     /// Download the Kokoro graph + voices blob and load the synthesiser once.
     ///
     /// `model_setting` is accepted for parity with the settings/ASR path but is not
+    /// used to vary the repo here: Kokoro ships as a single fixed v1.0 graph, so the
+    /// id only selects "Kokoro". The voice string is validated up front so a typo
+    /// surfaces at load time rather than on the first utterance.
+    pub fn load_tts(
+        _model_setting: &str,
+        voice: &str,
+        progress: Progress<'_>,
+    ) -> anyhow::Result<Tts> {
+        let voice_key = voice.trim().to_lowercase();
+        // Fail fast on an unrecognised voice (probe with a neutral speed).
+        voice_for(&voice_key, 1.0).with_context(|| format!("unknown Kokoro voice {voice:?}"))?;
+
+        let model_path = download::fetch(KOKORO_REPO, KOKORO_MODEL_FILE, "VOICE", progress)
+            .context("fetching Kokoro ONNX model")?;
+        let voices_path = download::fetch(KOKORO_REPO, KOKORO_VOICES_FILE, "VOICE", progress)
+            .context("fetching Kokoro voices blob")?;
+
+        // `KokoroTts::new` uses `tokio::fs`, so it must run inside a Tokio reactor.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .context("building Tokio runtime for Kokoro")?;
+
