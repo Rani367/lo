@@ -150,3 +150,26 @@ mod imp {
             "bm_lewis" => Voice::BmLewis(speed),
             _ => return None,
         };
+        Some(v)
+    }
+}
+
+// ───────────────────────────── stub ─────────────────────────────
+
+#[cfg(not(feature = "tts-kokoro"))]
+mod imp {
+    use super::Progress;
+
+    /// Placeholder TTS that exists only so the public type names resolve when the
+    /// `tts-kokoro` feature is off. Never constructed.
+    pub struct Tts {
+        _never: std::convert::Infallible,
+    }
+
+    impl Tts {
+        pub fn synth(&mut self, _text: &str, _speed: f32) -> anyhow::Result<(Vec<f32>, u32)> {
+            match self._never {}
+        }
+    }
+
+    pub fn load_tts(
