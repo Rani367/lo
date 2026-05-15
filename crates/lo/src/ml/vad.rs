@@ -127,3 +127,26 @@ mod imp {
                     self.pre_roll.pop_front();
                 }
             }
+
+            if prob >= POSITIVE_THRESHOLD {
+                if self.silence_fired {
+                    // Resumed talking after a speculative SilenceStart — it's stale.
+                    self.silence_fired = false;
+                    self.speech.clear();
+                    self.speech_frames = 0;
+                    events.push(VadEvent::SpeechResume);
+                }
+                if !self.is_speaking {
+                    self.is_speaking = true;
+                    events.push(VadEvent::SpeechStart);
+                }
+                self.redemption = 0;
+                self.speech.extend_from_slice(frame_16k);
+                self.speech_frames += 1;
+            } else if self.is_speaking {
+                // Still within the redemption window — keep accumulating.
+                self.speech.extend_from_slice(frame_16k);
+                self.speech_frames += 1;
+                self.redemption += 1;
+
+                // Fire speculative SilenceStart on the first clearly-silent frame.
