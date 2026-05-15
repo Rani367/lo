@@ -81,3 +81,26 @@ mod imp {
     /// Silero VAD streaming segmenter.
     pub struct Vad {
         session: Session,
+        /// LSTM hidden state `[2,1,128]`, threaded between frames; zeroed on reset.
+        state: Vec<f32>,
+
+        // ── segmentation state (mirrors the TS fields) ──
+        /// True once a frame crossed the positive threshold for the current turn.
+        is_speaking: bool,
+        /// True once a speculative `SilenceStart` fired for the current turn.
+        silence_fired: bool,
+        /// Speech frames accumulated for the current turn (flattened).
+        speech: Vec<f32>,
+        /// Number of frames in `speech` (to recover frame boundaries / counts).
+        speech_frames: usize,
+        /// Rolling pre-speech lead-in (last ≤7 frames before speech began).
+        pre_roll: VecDeque<f32>,
+        /// Consecutive sub-positive frames seen since the last speech frame.
+        redemption: usize,
+    }
+
+    impl Vad {
+        /// Push one 512-sample 16 kHz mono frame; returns any events it triggers.
+        ///
+        /// A frame of the wrong length yields no events (the caller is expected to
+        /// chunk to [`FRAME_SAMPLES`]); we never panic on bad input.
