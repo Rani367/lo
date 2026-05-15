@@ -35,3 +35,26 @@ pub const SILERO_FILE: &str = "onnx/model.onnx";
 /// Exact frame size the Silero v5 16 kHz model consumes.
 pub const FRAME_SAMPLES: usize = 512;
 
+/// Speech probability at/above which a frame counts as speech (TS: 0.6).
+const POSITIVE_THRESHOLD: f32 = 0.6;
+/// Speech probability below which a frame counts as silence (TS: 0.4).
+const NEGATIVE_THRESHOLD: f32 = 0.4;
+/// Pre-roll prepended to each utterance: `preSpeechPadMs(250) / 32ms ≈ 7 frames`.
+const PRE_SPEECH_PAD_FRAMES: usize = 7;
+/// Silence frames that end a turn: `redemptionMs(900) / 32ms ≈ 28 frames`.
+const REDEMPTION_FRAMES: usize = 28;
+/// Ignore utterances shorter than 0.4 s (`16000 * 0.4`).
+const MIN_UTTERANCE_SAMPLES: usize = 6400;
+
+/// Events emitted as frames are pushed, mirroring the TS `VadHandlers` callbacks.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VadEvent {
+    /// Speech began (was `onSpeechStart`).
+    SpeechStart,
+    /// Silence first detected after speech — *speculative*. Carries the pre-roll +
+    /// speech-so-far so a speculative transcription can start before the turn is
+    /// confirmed over (was `onSilenceStart`). Invalidated by [`VadEvent::SpeechResume`].
+    SilenceStart(Vec<f32>),
+    /// The user resumed talking after a [`VadEvent::SilenceStart`]; discard the
+    /// speculative clip (was `onSpeechResume`).
+    SpeechResume,
