@@ -104,3 +104,26 @@ mod imp {
         ///
         /// A frame of the wrong length yields no events (the caller is expected to
         /// chunk to [`FRAME_SAMPLES`]); we never panic on bad input.
+        pub fn push_frame(&mut self, frame_16k: &[f32]) -> Vec<VadEvent> {
+            let mut events = Vec::new();
+            if frame_16k.len() != FRAME_SAMPLES {
+                return events;
+            }
+
+            let prob = match self.infer(frame_16k) {
+                Ok(p) => p,
+                // A transient inference failure shouldn't crash capture; treat the
+                // frame as silence and keep going.
+                Err(_) => return events,
+            };
+
+            // Maintain the rolling pre-roll while not yet capturing speech.
+            if !self.is_speaking {
+                for &s in frame_16k {
+                    self.pre_roll.push_back(s);
+                }
+                let cap = PRE_SPEECH_PAD_FRAMES * FRAME_SAMPLES;
+                while self.pre_roll.len() > cap {
+                    self.pre_roll.pop_front();
+                }
+            }
