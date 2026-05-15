@@ -58,3 +58,26 @@ pub enum VadEvent {
     /// The user resumed talking after a [`VadEvent::SilenceStart`]; discard the
     /// speculative clip (was `onSpeechResume`).
     SpeechResume,
+    /// The turn ended after the redemption window. Carries the full utterance
+    /// (pre-roll + all speech frames) **iff** it is ≥ [`MIN_UTTERANCE_SAMPLES`];
+    /// otherwise it is empty (a misfire) (was `onSpeechEnd` / `onVADMisfire`).
+    SpeechEnd(Vec<f32>),
+}
+
+// ───────────────────────────── real impl ─────────────────────────────
+
+#[cfg(feature = "vad-silero")]
+mod imp {
+    use super::{
+        Progress, VadEvent, FRAME_SAMPLES, MIN_UTTERANCE_SAMPLES, NEGATIVE_THRESHOLD,
+        POSITIVE_THRESHOLD, PRE_SPEECH_PAD_FRAMES, REDEMPTION_FRAMES, SILERO_FILE, SILERO_REPO,
+    };
+    use crate::ml::download;
+    use anyhow::Context;
+    use ort::session::Session;
+    use ort::value::Tensor;
+    use std::collections::VecDeque;
+
+    /// Silero VAD streaming segmenter.
+    pub struct Vad {
+        session: Session,
