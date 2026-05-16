@@ -173,3 +173,26 @@ mod imp {
         /// Clear all segmentation state and zero the LSTM state (was destroy/init).
         pub fn reset(&mut self) {
             self.state.iter_mut().for_each(|v| *v = 0.0);
+            self.end_turn();
+        }
+
+        /// Reset only the per-turn segmentation fields (keeps the LSTM warm).
+        fn end_turn(&mut self) {
+            self.is_speaking = false;
+            self.silence_fired = false;
+            self.speech.clear();
+            self.speech_frames = 0;
+            self.pre_roll.clear();
+            self.redemption = 0;
+        }
+
+        /// Build the utterance clip = pre-roll lead-in + accumulated speech, matching
+        /// the canonical `onSpeechEnd` clip the TS library prepended.
+        fn utterance_clip(&self) -> Vec<f32> {
+            let mut clip = Vec::with_capacity(self.pre_roll.len() + self.speech.len());
+            clip.extend(self.pre_roll.iter().copied());
+            clip.extend_from_slice(&self.speech);
+            clip
+        }
+
+        /// Run one frame through the Silero graph, returning the speech probability
