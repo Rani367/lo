@@ -150,3 +150,26 @@ mod imp {
                 self.redemption += 1;
 
                 // Fire speculative SilenceStart on the first clearly-silent frame.
+                if !self.silence_fired && prob < NEGATIVE_THRESHOLD {
+                    self.silence_fired = true;
+                    events.push(VadEvent::SilenceStart(self.utterance_clip()));
+                }
+
+                // Redemption elapsed → the turn is over.
+                if self.redemption >= REDEMPTION_FRAMES {
+                    let clip = self.utterance_clip();
+                    self.end_turn();
+                    if clip.len() >= MIN_UTTERANCE_SAMPLES {
+                        events.push(VadEvent::SpeechEnd(clip));
+                    } else {
+                        events.push(VadEvent::SpeechEnd(Vec::new()));
+                    }
+                }
+            }
+
+            events
+        }
+
+        /// Clear all segmentation state and zero the LSTM state (was destroy/init).
+        pub fn reset(&mut self) {
+            self.state.iter_mut().for_each(|v| *v = 0.0);
