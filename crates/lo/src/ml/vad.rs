@@ -196,3 +196,26 @@ mod imp {
         }
 
         /// Run one frame through the Silero graph, returning the speech probability
+        /// and threading the new LSTM state back into `self.state`.
+        fn infer(&mut self, frame: &[f32]) -> anyhow::Result<f32> {
+            let input = Tensor::from_array(([1usize, FRAME_SAMPLES], frame.to_vec()))
+                .context("building VAD input tensor")?;
+            let state = Tensor::from_array(([2usize, 1, 128], self.state.clone()))
+                .context("building VAD state tensor")?;
+            let sr = Tensor::from_array(([1usize], vec![16_000i64]))
+                .context("building VAD sr tensor")?;
+
+            let outputs = self
+                .session
+                .run(ort::inputs![
+                    "input" => input,
+                    "state" => state,
+                    "sr" => sr,
+                ])
+                .context("running Silero VAD")?;
+
+            // Output 0 is the speech probability `[1,1]`.
+            let (_shape, prob_data) = outputs[0]
+                .try_extract_tensor::<f32>()
+                .context("reading VAD probability")?;
+            let prob = prob_data.first().copied().unwrap_or(0.0);
