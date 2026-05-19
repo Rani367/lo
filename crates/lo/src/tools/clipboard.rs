@@ -18,3 +18,19 @@ pub fn read_clipboard() -> Result<String, String> {
     if text.is_empty() {
         return Ok("The clipboard is empty (or holds non-text content).".to_string());
     }
+    Ok(if text.chars().count() > MAX_CLIP {
+        let head: String = text.chars().take(MAX_CLIP).collect();
+        format!("{head}\n… (truncated)")
+    } else {
+        text
+    })
+}
+
+/// Replace the clipboard's contents with `text`.
+pub fn write_clipboard(text: &str) -> Result<String, String> {
+    let mut clipboard = Clipboard::new().map_err(|e| format!("{e}"))?;
+    clipboard
+        .set_text(text.to_string())
+        .map_err(|e| format!("{e}"))?;
+    Ok("Copied to the clipboard.".to_string())
+}
