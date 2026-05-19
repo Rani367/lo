@@ -219,3 +219,26 @@ mod imp {
                 .try_extract_tensor::<f32>()
                 .context("reading VAD probability")?;
             let prob = prob_data.first().copied().unwrap_or(0.0);
+
+            // The other output is the next LSTM state — pick it up by name-agnostic
+            // scan so `stateN`/`state` naming differences don't matter.
+            let mut new_state: Option<Vec<f32>> = None;
+            for (name, value) in outputs.iter() {
+                if name == "output" {
+                    continue;
+                }
+                if let Ok((_s, data)) = value.try_extract_tensor::<f32>() {
+                    if data.len() == self.state.len() {
+                        new_state = Some(data.to_vec());
+                        break;
+                    }
+                }
+            }
+            if let Some(s) = new_state {
+                self.state = s;
+            }
+
+            Ok(prob)
+        }
+    }
+
