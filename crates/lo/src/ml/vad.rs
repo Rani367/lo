@@ -288,3 +288,10 @@ mod imp {
     }
 
     pub fn new_vad(_progress: Progress<'_>) -> anyhow::Result<Vad> {
+        anyhow::bail!(
+            "voice-activity detection unavailable: built without the `vad-silero` feature"
+        )
+    }
+}
+
+pub use imp::{new_vad, Vad};
