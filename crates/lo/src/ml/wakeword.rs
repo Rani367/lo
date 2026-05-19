@@ -14,3 +14,26 @@
 
 /// A frame-driven wake-word detector. Implementors consume fixed-length 16 kHz
 /// mono `i16` frames and report when the keyword is detected.
+///
+/// `Send` so the always-on wake mic can live on the audio/worker thread.
+pub trait WakeWord: Send {
+    /// Process exactly one frame of [`frame_length`](WakeWord::frame_length)
+    /// samples; returns `true` on the frame where the wake word fires.
+    fn process_i16(&mut self, frame_16k_i16: &[i16]) -> bool;
+
+    /// The exact number of `i16` samples each [`process_i16`](WakeWord::process_i16)
+    /// call expects (Porcupine's `frame_length`, typically 512 at 16 kHz).
+    fn frame_length(&self) -> usize;
+}
+
+/// A wake-word detector that never fires. Used when no Picovoice key is configured
+/// or the real engine isn't vendored yet — the app falls back to push-to-talk / VAD.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DisabledWake;
+
+impl WakeWord for DisabledWake {
+    fn process_i16(&mut self, _frame_16k_i16: &[i16]) -> bool {
+        false
+    }
+
+    fn frame_length(&self) -> usize {
