@@ -265,3 +265,26 @@ mod imp {
     }
 }
 
+// ───────────────────────────── stub ─────────────────────────────
+
+#[cfg(not(feature = "vad-silero"))]
+mod imp {
+    use super::{Progress, VadEvent};
+
+    /// Placeholder VAD that exists only so the public type names resolve when the
+    /// `vad-silero` feature is off. Never constructed.
+    pub struct Vad {
+        _never: std::convert::Infallible,
+    }
+
+    impl Vad {
+        pub fn push_frame(&mut self, _frame_16k: &[f32]) -> Vec<VadEvent> {
+            match self._never {}
+        }
+
+        pub fn reset(&mut self) {
+            match self._never {}
+        }
+    }
+
+    pub fn new_vad(_progress: Progress<'_>) -> anyhow::Result<Vad> {
