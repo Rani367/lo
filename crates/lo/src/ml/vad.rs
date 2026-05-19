@@ -242,3 +242,26 @@ mod imp {
         }
     }
 
+    /// Download the Silero v5 ONNX graph and build the session.
+    pub fn new_vad(progress: Progress<'_>) -> anyhow::Result<Vad> {
+        let path = download::fetch(SILERO_REPO, SILERO_FILE, "VAD", progress)
+            .context("fetching Silero VAD model")?;
+
+        let session = Session::builder()
+            .context("creating ort session builder")?
+            .commit_from_file(&path)
+            .with_context(|| format!("loading Silero VAD from {}", path.display()))?;
+
+        Ok(Vad {
+            session,
+            state: vec![0.0f32; 2 * 128],
+            is_speaking: false,
+            silence_fired: false,
+            speech: Vec::new(),
+            speech_frames: 0,
+            pre_roll: VecDeque::new(),
+            redemption: 0,
+        })
+    }
+}
+
