@@ -37,3 +37,6 @@ impl WakeWord for DisabledWake {
     }
 
     fn frame_length(&self) -> usize {
+        512
+    }
+}
