@@ -97,3 +97,26 @@ pub async fn focus_app(name: &str) -> Result<String, String> {
             ],
         )
         .await?;
+    } else if cfg!(target_os = "windows") {
+        run_with_app_env(
+            "powershell",
+            &[
+                "-NoProfile",
+                "-Command",
+                "(New-Object -ComObject WScript.Shell).AppActivate($env:LO_APP)",
+            ],
+            app,
+        )
+        .await?;
+    } else {
+        if run("wmctrl", &["-a", app]).await.is_err() {
+            run("xdotool", &["search", "--name", app, "windowactivate"]).await?;
+        }
+    }
+    Ok(format!("Brought {app} to the front."))
+}
+
+/// Quit a running application gracefully.
+pub async fn quit_app(name: &str) -> Result<String, String> {
+    let app = name.trim();
+    if app.is_empty() {
