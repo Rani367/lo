@@ -51,3 +51,26 @@ pub async fn set_volume(percent: f64) -> Result<String, String> {
     if cfg!(target_os = "macos") {
         run(
             "osascript",
+            &["-e", &format!("set volume output volume {v}")],
+        )
+        .await?;
+    } else if cfg!(target_os = "linux") {
+        if run(
+            "pactl",
+            &["set-sink-volume", "@DEFAULT_SINK@", &format!("{v}%")],
+        )
+        .await
+        .is_err()
+        {
+            run("amixer", &["-q", "sset", "Master", &format!("{v}%")]).await?;
+        }
+    } else if cfg!(target_os = "windows") {
+        // No built-in absolute-volume CLI: drive to a known floor with the
+        // volume-down media key (~2%/press), then step up to the target.
+        let ups = (v as f64 / 2.0).round() as i64;
+        let ps = format!(
+            "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte b, byte s, uint f, int e);' \
+             -Name K -Namespace W; \
+             for($i=0;$i -lt 50;$i++){{[W.K]::keybd_event(0xAE,0,0,0)}}; \
+             for($i=0;$i -lt {ups};$i++){{[W.K]::keybd_event(0xAF,0,0,0)}};"
+        );
