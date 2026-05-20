@@ -28,3 +28,26 @@ pub async fn open_app(name: &str) -> Result<String, String> {
             "powershell",
             &[
                 "-NoProfile",
+                "-Command",
+                "Start-Process -FilePath $env:LO_APP",
+            ],
+            app,
+        )
+        .await?;
+    } else {
+        // Linux: try a desktop launcher, then a bare binary.
+        if run("gtk-launch", &[app]).await.is_err() {
+            let safe = shell_safe(app);
+            let cmd = format!("command -v {safe} >/dev/null && {safe} & disown");
+            run("sh", &["-c", &cmd]).await?;
+        }
+    }
+    Ok(format!("Opened {app}."))
+}
+
+/// Set the system output volume to a 0-100 percentage.
+pub async fn set_volume(percent: f64) -> Result<String, String> {
+    let v = percent.round().clamp(0.0, 100.0) as i64;
+    if cfg!(target_os = "macos") {
+        run(
+            "osascript",
