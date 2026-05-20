@@ -143,3 +143,26 @@ pub async fn quit_app(name: &str) -> Result<String, String> {
     }
     Ok(format!("Closed {app}."))
 }
+
+/// Capture a screenshot of the screen(s) and save it to `~/Pictures`.
+///
+/// Uses `xcap` to capture every monitor and save the first as a PNG, which is
+/// portable across macOS/Windows/Linux without per-OS screenshot binaries.
+pub async fn take_screenshot() -> Result<String, String> {
+    let dir = pictures_dir();
+    let file = dir.join(format!("lo-{}.png", stamp()));
+
+    // `xcap` is blocking + does its own platform work; keep it off the async
+    // executor with `spawn_blocking`.
+    let file_for_task = file.clone();
+    let result = tokio::task::spawn_blocking(move || -> Result<(), String> {
+        if let Some(parent) = file_for_task.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("could not create the Pictures folder: {e}"))?;
+        }
+        let monitors =
+            xcap::Monitor::all().map_err(|e| format!("could not enumerate displays: {e}"))?;
+        let monitor = monitors
+            .into_iter()
+            .next()
+            .ok_or_else(|| "no display was found to capture.".to_string())?;
