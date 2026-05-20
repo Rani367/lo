@@ -120,3 +120,26 @@ pub async fn focus_app(name: &str) -> Result<String, String> {
 pub async fn quit_app(name: &str) -> Result<String, String> {
     let app = name.trim();
     if app.is_empty() {
+        return Err("No application name given.".to_string());
+    }
+    if cfg!(target_os = "macos") {
+        run(
+            "osascript",
+            &[
+                "-e",
+                &format!("tell application \"{}\" to quit", escape_applescript(app)),
+            ],
+        )
+        .await?;
+    } else if cfg!(target_os = "windows") {
+        let image = if app.to_lowercase().ends_with(".exe") {
+            app.to_string()
+        } else {
+            format!("{app}.exe")
+        };
+        run("taskkill", &["/IM", &image]).await?;
+    } else {
+        run("pkill", &["-f", app]).await?;
+    }
+    Ok(format!("Closed {app}."))
+}
