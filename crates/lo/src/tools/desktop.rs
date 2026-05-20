@@ -74,3 +74,26 @@ pub async fn set_volume(percent: f64) -> Result<String, String> {
              for($i=0;$i -lt 50;$i++){{[W.K]::keybd_event(0xAE,0,0,0)}}; \
              for($i=0;$i -lt {ups};$i++){{[W.K]::keybd_event(0xAF,0,0,0)}};"
         );
+        run("powershell", &["-NoProfile", "-Command", &ps]).await?;
+    }
+    Ok(format!("Volume set to {v} percent."))
+}
+
+/// Bring a running application to the foreground.
+pub async fn focus_app(name: &str) -> Result<String, String> {
+    let app = name.trim();
+    if app.is_empty() {
+        return Err("No application name given.".to_string());
+    }
+    if cfg!(target_os = "macos") {
+        run(
+            "osascript",
+            &[
+                "-e",
+                &format!(
+                    "tell application \"{}\" to activate",
+                    escape_applescript(app)
+                ),
+            ],
+        )
+        .await?;
