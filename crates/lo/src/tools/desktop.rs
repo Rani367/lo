@@ -166,3 +166,26 @@ pub async fn take_screenshot() -> Result<String, String> {
             .into_iter()
             .next()
             .ok_or_else(|| "no display was found to capture.".to_string())?;
+        let image = monitor
+            .capture_image()
+            .map_err(|e| format!("the screen capture failed: {e}"))?;
+        image
+            .save(&file_for_task)
+            .map_err(|e| format!("could not save the screenshot: {e}"))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("the screenshot task failed: {e}"))?;
+
+    result?;
+    Ok(format!("Screenshot saved to {}.", file.display()))
+}
+
+/// Report the current local date and time, e.g.
+/// `It is 3:05 pm on Saturday, June 14, 2026.`
+pub fn get_datetime() -> String {
+    let now = Local::now();
+    // 12-hour clock with no leading zero on the hour (matches `hour: 'numeric'`).
+    let mut hour12 = now.hour() % 12;
+    if hour12 == 0 {
+        hour12 = 12;
