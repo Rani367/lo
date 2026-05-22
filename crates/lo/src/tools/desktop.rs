@@ -189,3 +189,26 @@ pub fn get_datetime() -> String {
     let mut hour12 = now.hour() % 12;
     if hour12 == 0 {
         hour12 = 12;
+    }
+    let ampm = if now.hour() < 12 { "am" } else { "pm" };
+    let weekday = now.format("%A");
+    let month = now.format("%B");
+    format!(
+        "It is {hour12}:{minute:02} {ampm} on {weekday}, {month} {day}, {year}.",
+        minute = now.minute(),
+        day = now.day(),
+        year = now.year(),
+    )
+}
+
+// ---------- helpers ----------
+
+/// Spawn an argv-only command, capturing nothing; error on non-zero exit or a
+/// spawn failure. Mirrors `execFile` reject-on-error semantics.
+async fn run(program: &str, args: &[&str]) -> Result<(), String> {
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| format!("{program}: {e}"))?;
+    if output.status.success() {
