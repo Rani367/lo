@@ -212,3 +212,26 @@ async fn run(program: &str, args: &[&str]) -> Result<(), String> {
         .await
         .map_err(|e| format!("{program}: {e}"))?;
     if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let msg = stderr.trim();
+        Err(if msg.is_empty() {
+            format!("{program} exited with {}", output.status)
+        } else {
+            msg.to_string()
+        })
+    }
+}
+
+/// Like [`run`], but hands the app name to PowerShell via `LO_APP` so it is
+/// never interpolated into the command string.
+async fn run_with_app_env(program: &str, args: &[&str], app: &str) -> Result<(), String> {
+    let output = Command::new(program)
+        .args(args)
+        .env("LO_APP", app)
+        .output()
+        .await
+        .map_err(|e| format!("{program}: {e}"))?;
+    if output.status.success() {
+        Ok(())
