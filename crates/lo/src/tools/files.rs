@@ -26,3 +26,26 @@ pub async fn read_file(settings: &LoSettings, path: &str) -> Result<String, Stri
             "That file is {} KB; I only read up to {} KB.",
             (meta.len() as f64 / 1024.0).round() as u64,
             MAX_READ_BYTES / 1024
+        ));
+    }
+    let bytes = tokio::fs::read(&abs).await.map_err(io_msg)?;
+    if looks_binary(&bytes) {
+        return Err("That looks like a binary file, so I won't read it as text.".to_string());
+    }
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+/// List a directory's entries (`d`/`-` prefix), capped at `MAX_LIST`.
+pub async fn list_dir(settings: &LoSettings, path: &str) -> Result<String, String> {
+    let input = if path.trim().is_empty() { "~" } else { path };
+    let abs = resolve(settings, input)?;
+
+    let mut entries: Vec<(bool, String)> = Vec::new();
+    let mut read_dir = tokio::fs::read_dir(&abs).await.map_err(io_msg)?;
+    while let Some(entry) = read_dir.next_entry().await.map_err(io_msg)? {
+        let is_dir = entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
+        entries.push((is_dir, entry.file_name().to_string_lossy().into_owned()));
+    }
+
+    let total = entries.len();
+    let mut lines: Vec<String> = entries
