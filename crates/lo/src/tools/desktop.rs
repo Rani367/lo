@@ -235,3 +235,26 @@ async fn run_with_app_env(program: &str, args: &[&str], app: &str) -> Result<(),
         .map_err(|e| format!("{program}: {e}"))?;
     if output.status.success() {
         Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let msg = stderr.trim();
+        Err(if msg.is_empty() {
+            format!("{program} exited with {}", output.status)
+        } else {
+            msg.to_string()
+        })
+    }
+}
+
+/// Escape a string for an AppleScript double-quoted literal: escape backslashes
+/// and quotes, neutralise newlines (which could start a new statement).
+fn escape_applescript(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\r' | '\n' => out.push(' '),
+            other => out.push(other),
+        }
+    }
