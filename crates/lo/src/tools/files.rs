@@ -49,3 +49,26 @@ pub async fn list_dir(settings: &LoSettings, path: &str) -> Result<String, Strin
 
     let total = entries.len();
     let mut lines: Vec<String> = entries
+        .into_iter()
+        .take(MAX_LIST)
+        .map(|(is_dir, name)| format!("{} {name}", if is_dir { "d" } else { "-" }))
+        .collect();
+    // The TS sorts the rendered lines (after the slice), so directories and files
+    // interleave by their `d …` / `- …` rendering.
+    lines.sort();
+
+    let more = if total > MAX_LIST {
+        format!("\n… and {} more", total - MAX_LIST)
+    } else {
+        String::new()
+    };
+    Ok(format!("{}:\n{}{more}", abs.display(), lines.join("\n")))
+}
+
+/// Find files whose names contain `query` under `path`, depth-limited.
+pub async fn search_files(
+    settings: &LoSettings,
+    path: &str,
+    query: &str,
+) -> Result<String, String> {
+    let input = if path.trim().is_empty() { "~" } else { path };
