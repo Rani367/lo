@@ -72,3 +72,26 @@ pub async fn search_files(
     query: &str,
 ) -> Result<String, String> {
     let input = if path.trim().is_empty() { "~" } else { path };
+    let base = resolve(settings, input)?;
+    let needle = query.trim().to_lowercase();
+    if needle.is_empty() {
+        return Err("No search query was given.".to_string());
+    }
+
+    let mut matches: Vec<String> = Vec::new();
+    walk(&base, 0, &needle, &mut matches).await;
+
+    if matches.is_empty() {
+        return Ok(format!(
+            "No files matching \"{query}\" under {}.",
+            base.display()
+        ));
+    }
+    let mut out = matches.join("\n");
+    if matches.len() >= MAX_MATCHES {
+        out.push_str("\n… (truncated)");
+    }
+    Ok(out)
+}
+
+/// Recursive directory walk: skip dotfiles + `node_modules`, cap matches+depth.
