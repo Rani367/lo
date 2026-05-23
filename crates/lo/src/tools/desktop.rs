@@ -258,3 +258,21 @@ fn escape_applescript(s: &str) -> String {
             other => out.push(other),
         }
     }
+    out
+}
+
+/// Conservative app-name charset for the Linux bare-binary fallback path.
+fn shell_safe(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        .collect()
+}
+
+fn pictures_dir() -> PathBuf {
+    paths::home_dir().join("Pictures")
+}
+
+/// An ISO-8601 timestamp with `:`/`.` replaced by `-` (filename-safe).
+fn stamp() -> String {
+    Local::now().format("%Y-%m-%dT%H-%M-%S").to_string()
+}
