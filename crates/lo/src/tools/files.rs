@@ -187,3 +187,17 @@ pub async fn open_path(settings: &LoSettings, path: &str) -> Result<String, Stri
     tokio::task::spawn_blocking(move || open::that_detached(&abs_for_task))
         .await
         .map_err(|e| format!("could not open the path: {e}"))?
+        .map_err(|e| format!("{e}"))?;
+    Ok(format!("Opened {}.", abs.display()))
+}
+
+/// Resolve a user path inside the allowed roots, mapping the sandbox error to a
+/// plain message (the variants already carry good wording).
+fn resolve(settings: &LoSettings, input: &str) -> Result<std::path::PathBuf, String> {
+    sandbox::resolve_in_roots(settings, input).map_err(|e| e.to_string())
+}
+
+/// Format an I/O error as a plain message for the tool result.
+fn io_msg(e: std::io::Error) -> String {
+    e.to_string()
+}
