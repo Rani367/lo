@@ -95,3 +95,26 @@ pub async fn search_files(
 }
 
 /// Recursive directory walk: skip dotfiles + `node_modules`, cap matches+depth.
+/// (Boxed future because `async fn` recursion needs an explicitly-sized type.)
+fn walk<'a>(
+    dir: &'a Path,
+    depth: usize,
+    needle: &'a str,
+    matches: &'a mut Vec<String>,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
+    Box::pin(async move {
+        if matches.len() >= MAX_MATCHES || depth > MAX_SEARCH_DEPTH {
+            return;
+        }
+        let Ok(mut read_dir) = tokio::fs::read_dir(dir).await else {
+            return; // unreadable dir — skip
+        };
+        while let Ok(Some(entry)) = read_dir.next_entry().await {
+            if matches.len() >= MAX_MATCHES {
+                return;
+            }
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') || name == "node_modules" {
+                continue;
+            }
+            let full = entry.path();
