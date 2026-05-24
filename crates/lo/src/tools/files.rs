@@ -141,3 +141,26 @@ pub async fn write_file(
         return Err(format!(
             "{} already exists. Pass overwrite to replace it.",
             abs.display()
+        ));
+    }
+    if let Some(parent) = abs.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(io_msg)?;
+    }
+    tokio::fs::write(&abs, content.as_bytes())
+        .await
+        .map_err(io_msg)?;
+    Ok(format!(
+        "Wrote {} bytes to {}.",
+        content.len(),
+        abs.display()
+    ))
+}
+
+/// Move or rename a file/folder (both ends validated; parent dirs created).
+pub async fn move_path(settings: &LoSettings, from: &str, to: &str) -> Result<String, String> {
+    let src = resolve(settings, from)?;
+    let dst = resolve(settings, to)?;
+    if let Some(parent) = dst.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(io_msg)?;
+    }
+    tokio::fs::rename(&src, &dst).await.map_err(io_msg)?;
