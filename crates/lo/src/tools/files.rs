@@ -118,3 +118,26 @@ fn walk<'a>(
                 continue;
             }
             let full = entry.path();
+            if name.to_lowercase().contains(needle) {
+                matches.push(full.to_string_lossy().into_owned());
+            }
+            let is_dir = entry.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
+            if is_dir {
+                walk(&full, depth + 1, needle, matches).await;
+            }
+        }
+    })
+}
+
+/// Create or overwrite a text file (parent dirs created as needed).
+pub async fn write_file(
+    settings: &LoSettings,
+    path: &str,
+    content: &str,
+    overwrite: bool,
+) -> Result<String, String> {
+    let abs = resolve(settings, path)?;
+    if !overwrite && abs.exists() {
+        return Err(format!(
+            "{} already exists. Pass overwrite to replace it.",
+            abs.display()
