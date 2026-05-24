@@ -164,3 +164,26 @@ pub async fn move_path(settings: &LoSettings, from: &str, to: &str) -> Result<St
         tokio::fs::create_dir_all(parent).await.map_err(io_msg)?;
     }
     tokio::fs::rename(&src, &dst).await.map_err(io_msg)?;
+    Ok(format!("Moved {} to {}.", src.display(), dst.display()))
+}
+
+/// Delete a file or folder (recursively for directories).
+pub async fn delete_path(settings: &LoSettings, path: &str) -> Result<String, String> {
+    let abs = resolve(settings, path)?;
+    let meta = tokio::fs::metadata(&abs).await.map_err(io_msg)?;
+    if meta.is_dir() {
+        tokio::fs::remove_dir_all(&abs).await.map_err(io_msg)?;
+    } else {
+        tokio::fs::remove_file(&abs).await.map_err(io_msg)?;
+    }
+    Ok(format!("Deleted {}.", abs.display()))
+}
+
+/// Open a file or folder in the OS default handler (Finder/Explorer/editor).
+pub async fn open_path(settings: &LoSettings, path: &str) -> Result<String, String> {
+    let abs = resolve(settings, path)?;
+    // `open` shells out; run it on a blocking thread to avoid stalling the executor.
+    let abs_for_task = abs.clone();
+    tokio::task::spawn_blocking(move || open::that_detached(&abs_for_task))
+        .await
+        .map_err(|e| format!("could not open the path: {e}"))?
