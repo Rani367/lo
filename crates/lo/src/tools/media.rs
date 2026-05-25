@@ -30,3 +30,26 @@ pub async fn media_control(action: &str) -> Result<String, String> {
     } else if cfg!(target_os = "linux") {
         let sub = match a {
             "playpause" => "play-pause",
+            "play" => "play",
+            "pause" => "pause",
+            "next" => "next",
+            "previous" => "previous",
+            "stop" => "stop",
+            _ => "play-pause",
+        };
+        run("playerctl", &[sub]).await?;
+    } else if cfg!(target_os = "windows") {
+        let vk: u32 = match a {
+            "next" => 0xB0,
+            "previous" => 0xB1,
+            "stop" => 0xB2,
+            // play / pause / playpause / toggle all map to the play/pause key.
+            _ => 0xB3,
+        };
+        let ps = format!(
+            "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte b, byte s, uint f, int e);' \
+             -Name K -Namespace W; [W.K]::keybd_event({vk},0,0,0);"
+        );
+        run("powershell", &["-NoProfile", "-Command", &ps]).await?;
+    } else {
+        return Err("Media control is not supported on this platform.".to_string());
