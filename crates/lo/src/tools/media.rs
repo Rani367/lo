@@ -76,3 +76,26 @@ fn label(a: &str) -> &'static str {
         "next" => "Skipped ahead",
         "previous" => "Skipped back",
         "stop" => "Stopped",
+        _ => "Toggled playback",
+    }
+}
+
+/// Spawn an argv-only command; error on non-zero exit or spawn failure.
+async fn run(program: &str, args: &[&str]) -> Result<(), String> {
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .await
+        .map_err(|e| format!("{program}: {e}"))?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let msg = stderr.trim();
+        Err(if msg.is_empty() {
+            format!("{program} exited with {}", output.status)
+        } else {
+            msg.to_string()
+        })
+    }
+}
