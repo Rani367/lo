@@ -53,3 +53,26 @@ pub async fn media_control(action: &str) -> Result<String, String> {
         run("powershell", &["-NoProfile", "-Command", &ps]).await?;
     } else {
         return Err("Media control is not supported on this platform.".to_string());
+    }
+
+    Ok(format!("{}.", label(a)))
+}
+
+/// `prev`→`previous`, `toggle`→`playpause`; everything else passes through.
+fn normalize(a: &str) -> &str {
+    match a {
+        "prev" => "previous",
+        "toggle" => "playpause",
+        other => other,
+    }
+}
+
+/// Human label for the confirmation string.
+fn label(a: &str) -> &'static str {
+    match a {
+        "play" => "Playing",
+        "pause" => "Paused",
+        "playpause" => "Toggled playback",
+        "next" => "Skipped ahead",
+        "previous" => "Skipped back",
+        "stop" => "Stopped",
