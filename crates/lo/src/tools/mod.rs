@@ -21,3 +21,26 @@ mod web;
 use lo_core::tools::audit::{self, Decision};
 use lo_core::tools::{self, GateDecision};
 use lo_core::LoSettings;
+use serde_json::Value;
+use tokio::sync::mpsc::UnboundedSender;
+
+/// Execute a requested tool by name and return a string result for the brain.
+///
+/// Mirrors `dispatchTool` in `registry.ts`:
+/// 1. Parse `args_json` with serde_json; on parse failure return a fixed message.
+/// 2. Run the safety gate; if it denies, audit `Denied` and return the canned
+///    power-user refusal.
+/// 3. Otherwise execute. For non-`Safe` tiers, audit `Allowed` (with the result)
+///    on success or `Error` (with the message) on failure.
+///
+/// `announce` is the worker → UI string channel a fired timer speaks into.
+pub async fn dispatch(
+    name: &str,
+    args_json: &str,
+    settings: &LoSettings,
+    announce: &UnboundedSender<String>,
+) -> String {
+    // 1) Parse the arguments (empty string => empty object, matching the TS).
+    let args: Value = if args_json.is_empty() {
+        Value::Object(Default::default())
+    } else {
