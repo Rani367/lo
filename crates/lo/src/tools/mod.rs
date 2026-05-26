@@ -44,3 +44,26 @@ pub async fn dispatch(
     let args: Value = if args_json.is_empty() {
         Value::Object(Default::default())
     } else {
+        match serde_json::from_str::<Value>(args_json) {
+            Ok(v) => v,
+            Err(_) => return format!("Error: could not parse arguments for {name}."),
+        }
+    };
+
+    // 2) Safety gate: confirm/danger tools run only with power-user mode on.
+    let tier = tools::tier_for(name);
+    let safe = tier == tools::Tier::Safe;
+    if let GateDecision::DenyNeedsPowerUser = tools::gate(name, settings.power_user_mode) {
+        audit::audit_log(name, &args, Decision::Denied, "");
+        return tools::POWER_USER_REQUIRED.to_string();
+    }
+
+    // 3) Execute, then audit the outcome for non-safe tiers.
+    match execute(name, &args, settings, announce).await {
+        Ok(result) => {
+            if !safe {
+                audit::audit_log(name, &args, Decision::Allowed, &result);
+            }
+            result
+        }
+        Err(message) => {
