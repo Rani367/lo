@@ -67,3 +67,26 @@ pub async fn dispatch(
             result
         }
         Err(message) => {
+            if !safe {
+                audit::audit_log(name, &args, Decision::Error, &message);
+            }
+            format!("Error running {name}: {message}")
+        }
+    }
+}
+
+/// String helper mirroring `String(args.x ?? '')`: returns the string at `key`,
+/// or `""` if missing/non-string.
+fn str_arg(args: &Value, key: &str) -> String {
+    args.get(key)
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+/// Number helper mirroring `Number(args.x)`: accepts a JSON number or a numeric
+/// string, else NaN-like behavior (returns `f64::NAN`, callers clamp/round).
+fn num_arg(args: &Value, key: &str) -> f64 {
+    match args.get(key) {
+        Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
+        Some(Value::String(s)) => s.trim().parse::<f64>().unwrap_or(f64::NAN),
