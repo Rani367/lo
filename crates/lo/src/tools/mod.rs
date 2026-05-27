@@ -90,3 +90,26 @@ fn num_arg(args: &Value, key: &str) -> f64 {
     match args.get(key) {
         Some(Value::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
         Some(Value::String(s)) => s.trim().parse::<f64>().unwrap_or(f64::NAN),
+        _ => f64::NAN,
+    }
+}
+
+/// `args.x ? String(args.x) : undefined` — a present, non-empty string or None.
+fn opt_str_arg(args: &Value, key: &str) -> Option<String> {
+    match args.get(key) {
+        Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
+        _ => None,
+    }
+}
+
+/// `Array.isArray(v) ? v.map(String) : []` — coerce a JSON array to `Vec<String>`.
+fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
+    match args.get(key) {
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|v| match v {
+                Value::String(s) => s.clone(),
+                Value::Null => "null".to_string(),
+                other => other.to_string(),
+            })
+            .collect(),
