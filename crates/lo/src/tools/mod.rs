@@ -159,3 +159,26 @@ async fn execute(
 
         // ---- clipboard ----
         "read_clipboard" => clipboard::read_clipboard(),
+        "write_clipboard" => clipboard::write_clipboard(&str_arg(args, "text")),
+
+        // ---- filesystem ----
+        "read_file" => files::read_file(settings, &str_arg(args, "path")).await,
+        "list_dir" => files::list_dir(settings, &str_arg(args, "path")).await,
+        "search_files" => {
+            files::search_files(settings, &str_arg(args, "path"), &str_arg(args, "query")).await
+        }
+        "open_path" => files::open_path(settings, &str_arg(args, "path")).await,
+        "write_file" => {
+            files::write_file(
+                settings,
+                &str_arg(args, "path"),
+                &str_arg(args, "content"),
+                args.get("overwrite")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+            )
+            .await
+        }
+        "move_path" => {
+            files::move_path(settings, &str_arg(args, "from"), &str_arg(args, "to")).await
+        }
