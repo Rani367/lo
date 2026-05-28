@@ -113,3 +113,26 @@ fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
                 other => other.to_string(),
             })
             .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The `switch (name)` body from `registry.ts`'s `execute`. Returns `Ok(result)`
+/// or `Err(message)`; the caller wraps the error as `Error running {name}: ...`.
+async fn execute(
+    name: &str,
+    args: &Value,
+    settings: &LoSettings,
+    announce: &UnboundedSender<String>,
+) -> Result<String, String> {
+    match name {
+        // ---- information / web ----
+        "web_search" => Ok(web::web_search(&str_arg(args, "query")).await),
+        "fetch_url" => web::fetch_url(&str_arg(args, "url")).await,
+        "get_datetime" => Ok(desktop::get_datetime()),
+        "system_info" => {
+            let kind = args
+                .get("kind")
+                .and_then(Value::as_str)
+                .unwrap_or("overview");
+            Ok(system::system_info(kind, settings).await)
