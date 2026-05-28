@@ -6,3 +6,26 @@
 //!   - `overview` includes the host line plus cpu/memory/disk/battery (NOT network).
 //!   - `all` includes every section.
 //!   - a specific kind includes only that section.
+
+use lo_core::tools::sandbox;
+use lo_core::LoSettings;
+use starship_battery::units::ratio::percent;
+use starship_battery::{Manager, State};
+use sysinfo::{Disks, Networks, System};
+
+/// Render the requested telemetry as a single speakable line.
+pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
+    let kind = match kind {
+        "cpu" | "memory" | "disk" | "battery" | "network" | "all" => kind,
+        _ => "overview",
+    };
+    // `want(k)`: all matches everything; overview matches everything but network;
+    // otherwise only the exact kind.
+    let want = |k: &str| kind == "all" || kind == k || (kind == "overview" && k != "network");
+
+    let mut parts: Vec<String> = Vec::new();
+
+    if kind == "overview" || kind == "all" {
+        parts.push(host_line());
+    }
+    if want("cpu") {
