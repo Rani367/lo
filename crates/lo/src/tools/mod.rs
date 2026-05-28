@@ -182,3 +182,21 @@ async fn execute(
         "move_path" => {
             files::move_path(settings, &str_arg(args, "from"), &str_arg(args, "to")).await
         }
+        "delete_path" => files::delete_path(settings, &str_arg(args, "path")).await,
+
+        // ---- shell ----
+        "run_command" => {
+            shell::run_command(
+                settings,
+                &str_arg(args, "command"),
+                &string_array_arg(args, "args"),
+                opt_str_arg(args, "cwd").as_deref(),
+            )
+            .await
+        }
+
+        // Unknown tools return a normal string (the TS `execute` returns, not
+        // throws, so it is not wrapped as "Error running …").
+        other => Ok(format!("Error: unknown tool \"{other}\".")),
+    }
+}
