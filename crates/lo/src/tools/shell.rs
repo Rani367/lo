@@ -72,3 +72,18 @@ pub async fn run_command(
         };
         return Ok(format!(
             "Command failed ({code}): {}",
+            truncate_output(&detail)
+        ));
+    }
+
+    let body = [out, err_out]
+        .into_iter()
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    Ok(if body.is_empty() {
+        "Command completed with no output.".to_string()
+    } else {
+        truncate_output(&body)
+    })
+}
