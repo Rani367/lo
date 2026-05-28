@@ -136,3 +136,26 @@ async fn execute(
                 .and_then(Value::as_str)
                 .unwrap_or("overview");
             Ok(system::system_info(kind, settings).await)
+        }
+
+        // ---- apps / desktop ----
+        "open_app" => desktop::open_app(&str_arg(args, "name")).await,
+        "focus_app" => desktop::focus_app(&str_arg(args, "name")).await,
+        "quit_app" => desktop::quit_app(&str_arg(args, "name")).await,
+        "set_volume" => desktop::set_volume(num_arg(args, "percent")).await,
+        "media_control" => {
+            let action = args
+                .get("action")
+                .and_then(Value::as_str)
+                .unwrap_or("playpause");
+            media::media_control(action).await
+        }
+        "set_timer" => Ok(timer::set_timer(
+            num_arg(args, "seconds"),
+            opt_str_arg(args, "label"),
+            announce.clone(),
+        )),
+        "take_screenshot" => desktop::take_screenshot().await,
+
+        // ---- clipboard ----
+        "read_clipboard" => clipboard::read_clipboard(),
