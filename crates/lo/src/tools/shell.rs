@@ -26,3 +26,26 @@ pub async fn run_command(
 ) -> Result<String, String> {
     // Validation + cwd resolution lives in lo_core (tested). Its errors carry
     // good wording; surface them as the tool error.
+    let plan = shell::prepare(settings, command, args, cwd).map_err(|e| e.to_string())?;
+
+    let mut child_cmd = Command::new(&plan.program);
+    child_cmd
+        .args(&plan.args)
+        .current_dir(&plan.cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let spawn = child_cmd.output();
+    let output = match timeout(Duration::from_millis(TIMEOUT_MS), spawn).await {
+        Ok(Ok(o)) => o,
+        Ok(Err(e)) => {
+            // Spawn/exec failure (e.g. command not found) — report like `execFile`.
+            return Ok(format!(
+                "Command failed (error): {}",
+                truncate_output(&e.to_string())
+            ));
+        }
+        Err(_) => {
+            return Ok(format!(
+                "Command failed (timeout): no result within {} seconds.",
