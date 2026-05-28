@@ -49,3 +49,26 @@ pub async fn run_command(
         Err(_) => {
             return Ok(format!(
                 "Command failed (timeout): no result within {} seconds.",
+                TIMEOUT_MS / 1000
+            ));
+        }
+    };
+
+    let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let err_out = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if !output.status.success() {
+        let code = output
+            .status
+            .code()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "error".to_string());
+        let detail = if !err_out.is_empty() {
+            err_out
+        } else if !out.is_empty() {
+            out
+        } else {
+            format!("exited with status {}", output.status)
+        };
+        return Ok(format!(
+            "Command failed ({code}): {}",
