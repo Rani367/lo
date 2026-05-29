@@ -29,3 +29,26 @@ pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
         parts.push(host_line());
     }
     if want("cpu") {
+        parts.push(cpu_line());
+    }
+    if want("memory") {
+        parts.push(memory_line());
+    }
+    if want("disk") {
+        parts.push(disk_line(settings));
+    }
+    if want("battery") {
+        parts.push(battery_line());
+    }
+    if kind == "network" || kind == "all" {
+        parts.push(network_line());
+    }
+
+    parts
+        .into_iter()
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// `Host {name} — {os} {release} ({arch}), up {uptime}.`
