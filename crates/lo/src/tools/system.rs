@@ -52,3 +52,26 @@ pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
 }
 
 /// `Host {name} — {os} {release} ({arch}), up {uptime}.`
+fn host_line() -> String {
+    let host = System::host_name().unwrap_or_else(|| "unknown".to_string());
+    let os = System::name().unwrap_or_else(|| std::env::consts::OS.to_string());
+    let release = System::os_version().unwrap_or_default();
+    let arch = System::cpu_arch();
+    format!(
+        "Host {host} — {os} {release} ({arch}), up {}.",
+        uptime(System::uptime())
+    )
+}
+
+/// `CPU: {brand} × {count}[, load {one:.2}].`
+fn cpu_line() -> String {
+    let mut sys = System::new();
+    sys.refresh_cpu_all();
+    let cpus = sys.cpus();
+    let model = cpus
+        .first()
+        .map(|c| {
+            let brand = c.brand().trim();
+            if brand.is_empty() {
+                c.name().to_string()
+            } else {
