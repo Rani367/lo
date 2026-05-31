@@ -75,3 +75,26 @@ fn cpu_line() -> String {
             if brand.is_empty() {
                 c.name().to_string()
             } else {
+                brand.to_string()
+            }
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    let load = System::load_average().one;
+    let load_part = if load > 0.0 {
+        format!(", load {load:.2}")
+    } else {
+        String::new()
+    };
+    format!("CPU: {model} × {}{load_part}.", cpus.len())
+}
+
+/// `Memory: {used} used of {total} ({free} free).`
+fn memory_line() -> String {
+    let mut sys = System::new();
+    sys.refresh_memory();
+    let total = sys.total_memory();
+    let free = sys.free_memory();
+    let used = total.saturating_sub(free);
+    format!(
+        "Memory: {} used of {} ({} free).",
+        gb(used),
