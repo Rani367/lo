@@ -98,3 +98,26 @@ fn memory_line() -> String {
     format!(
         "Memory: {} used of {} ({} free).",
         gb(used),
+        gb(total),
+        gb(free)
+    )
+}
+
+/// `Disk ({root}): {used} used of {total} ({free} free).` for the first allowed
+/// root's filesystem. Empty string if the root can't be matched to a disk.
+fn disk_line(settings: &LoSettings) -> String {
+    let target = sandbox::allowed_roots(settings)
+        .into_iter()
+        .next()
+        .unwrap_or_else(lo_core::config::paths::home_dir);
+
+    let disks = Disks::new_with_refreshed_list();
+    // Pick the disk whose mount point is the longest prefix of `target` (i.e. the
+    // filesystem the root actually lives on), matching `statfs(target)`.
+    let best = disks
+        .list()
+        .iter()
+        .filter(|d| target.starts_with(d.mount_point()))
+        .max_by_key(|d| d.mount_point().as_os_str().len());
+
+    match best {
