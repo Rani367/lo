@@ -167,3 +167,26 @@ fn network_line() -> String {
                     ips.push(format!("{name} {v4}"));
                 }
             }
+        }
+    }
+    if ips.is_empty() {
+        "Network: no active external interface.".to_string()
+    } else {
+        format!("Network: {}.", ips.join(", "))
+    }
+}
+
+// ---------- helpers (mirror system.ts) ----------
+
+/// `{bytes/1e9:.1} GB` — matches the TS `gb()` (decimal gigabytes).
+fn gb(bytes: u64) -> String {
+    format!("{:.1} GB", bytes as f64 / 1e9)
+}
+
+/// `{h}h {m}m` (or just `{m}m`) from seconds — matches the TS `uptime()`.
+fn uptime(secs: u64) -> String {
+    let h = secs / 3600;
+    let m = (secs % 3600) / 60;
+    if h > 0 {
+        format!("{h}h {m}m")
+    } else {
