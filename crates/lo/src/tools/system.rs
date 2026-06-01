@@ -144,3 +144,26 @@ fn battery_line() -> String {
     };
     let Ok(mut batteries) = manager.batteries() else {
         return String::new();
+    };
+    let Some(Ok(battery)) = batteries.next() else {
+        return String::new();
+    };
+    let pct = battery.state_of_charge().get::<percent>().round() as i64;
+    let charging = matches!(battery.state(), State::Charging | State::Full);
+    format!(
+        "Battery: {pct}%{}.",
+        if charging { " (charging)" } else { "" }
+    )
+}
+
+/// `Network: {iface} {ip}, ….` for non-internal IPv4 interfaces, else a note.
+fn network_line() -> String {
+    let networks = Networks::new_with_refreshed_list();
+    let mut ips: Vec<String> = Vec::new();
+    for (name, data) in networks.list() {
+        for net in data.ip_networks() {
+            if let std::net::IpAddr::V4(v4) = net.addr {
+                if !v4.is_loopback() && !v4.is_link_local() && !v4.is_unspecified() {
+                    ips.push(format!("{name} {v4}"));
+                }
+            }
