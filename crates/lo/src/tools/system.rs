@@ -121,3 +121,26 @@ fn disk_line(settings: &LoSettings) -> String {
         .max_by_key(|d| d.mount_point().as_os_str().len());
 
     match best {
+        Some(d) => {
+            let total = d.total_space();
+            let free = d.available_space();
+            let used = total.saturating_sub(free);
+            format!(
+                "Disk ({}): {} used of {} ({} free).",
+                target.display(),
+                gb(used),
+                gb(total),
+                gb(free)
+            )
+        }
+        None => String::new(),
+    }
+}
+
+/// `Battery: {pct}%[ (charging)].` Empty string if no battery / unavailable.
+fn battery_line() -> String {
+    let Ok(manager) = Manager::new() else {
+        return String::new();
+    };
+    let Ok(mut batteries) = manager.batteries() else {
+        return String::new();
