@@ -190,3 +190,6 @@ fn uptime(secs: u64) -> String {
     if h > 0 {
         format!("{h}h {m}m")
     } else {
+        format!("{m}m")
+    }
+}
