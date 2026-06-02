@@ -18,3 +18,26 @@ pub fn set_timer(seconds: f64, label: Option<String>, announce: UnboundedSender<
         (seconds.round() as i64).max(1) as u64
     } else {
         1
+    };
+    let human = format_duration(secs);
+    let what = label
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty());
+
+    let what_for_task = what.clone();
+    let human_for_task = human.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(secs)).await;
+        let msg = match &what_for_task {
+            Some(w) => format!("Your timer for {w} is complete."),
+            None => format!("Your {human_for_task} timer is complete."),
+        };
+        // Best-effort desktop notification (may be unavailable / unsupported).
+        let _ = Notification::new().summary("Lo").body(&msg).show();
+        // Speak it when the UI is idle.
+        let _ = announce.send(format!("[crisply] {msg}"));
+    });
+
+    match what {
+        Some(w) => format!("Timer set for {human} ({w})."),
+        None => format!("Timer set for {human}."),
