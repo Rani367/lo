@@ -64,3 +64,5 @@ fn plural(n: u64) -> &'static str {
         ""
     } else {
         "s"
+    }
+}
