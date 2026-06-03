@@ -41,3 +41,26 @@ pub fn set_timer(seconds: f64, label: Option<String>, announce: UnboundedSender<
     match what {
         Some(w) => format!("Timer set for {human} ({w})."),
         None => format!("Timer set for {human}."),
+    }
+}
+
+/// Human-friendly duration, e.g. `45 seconds`, `3 minutes`, `2 minutes 5 seconds`.
+/// Mirrors `formatDuration` in `desktop.ts`.
+fn format_duration(secs: u64) -> String {
+    if secs < 60 {
+        return format!("{secs} second{}", plural(secs));
+    }
+    if secs % 60 == 0 {
+        let m = (secs as f64 / 60.0).round() as u64;
+        return format!("{m} minute{}", plural(m));
+    }
+    let m = secs / 60;
+    let s = secs % 60;
+    format!("{m} minute{} {s} seconds", plural(m))
+}
+
+fn plural(n: u64) -> &'static str {
+    if n == 1 {
+        ""
+    } else {
+        "s"
