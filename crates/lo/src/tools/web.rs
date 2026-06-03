@@ -19,3 +19,26 @@ use reqwest::{Client, Url};
 use scraper::{Html, Selector};
 
 /// Browser-ish UA so DuckDuckGo's HTML endpoint serves real results.
+const UA: &str = "Mozilla/5.0 (compatible; Lo/1.0)";
+
+const MAX_BYTES: usize = 512 * 1024;
+const MAX_TEXT: usize = 4000;
+const MAX_REDIRECTS: usize = 5;
+
+// --------------------------------------------------------------------------
+// web_search
+// --------------------------------------------------------------------------
+
+/// Search the live web via DuckDuckGo. Tries the Instant Answer JSON API first,
+/// then falls back to scraping the top HTML result snippets. Best-effort: always
+/// returns a string, never errors (so the tool result is always speakable).
+pub async fn web_search(query: &str) -> String {
+    let q = query.trim();
+    if q.is_empty() {
+        return "No query was provided.".to_string();
+    }
+
+    // 1) Instant Answer API (clean JSON for many factual queries).
+    if let Some(answer) = instant_answer(q).await {
+        return answer;
+    }
