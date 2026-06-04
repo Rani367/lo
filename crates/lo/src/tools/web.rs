@@ -134,3 +134,26 @@ pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
 
     let mut response: Option<reqwest::Response> = None;
     for hop in 0..=MAX_REDIRECTS {
+        let host = url
+            .host_str()
+            .ok_or_else(|| "That is not a valid URL.".to_string())?
+            .to_string();
+        assert_public_host(&host).await?;
+
+        let res = client
+            .get(url.clone())
+            .header("user-agent", "Mozilla/5.0 (compatible; Lo/1.0)")
+            .send()
+            .await
+            .map_err(|_| "The request failed.".to_string())?;
+
+        let status = res.status();
+        let location = if status.is_redirection() {
+            res.headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string())
+        } else {
+            None
+        };
+
