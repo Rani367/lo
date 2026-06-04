@@ -157,3 +157,26 @@ pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
             None
         };
 
+        match location {
+            None => {
+                response = Some(res);
+                break;
+            }
+            Some(loc) => {
+                if hop == MAX_REDIRECTS {
+                    return Err("Too many redirects.".to_string());
+                }
+                let next = url
+                    .join(&loc)
+                    .map_err(|_| "That is not a valid URL.".to_string())?;
+                url = parse_http(next.as_str())?;
+            }
+        }
+    }
+
+    let res = response.ok_or_else(|| "The request failed.".to_string())?;
+    let status = res.status();
+    if !status.is_success() {
+        return Err(format!("The server returned {}.", status.as_u16()));
+    }
+
