@@ -88,3 +88,26 @@ async fn instant_answer(q: &str) -> Option<String> {
     None
 }
 
+async fn scrape_results(q: &str) -> Option<String> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(7))
+        .user_agent(UA)
+        .build()
+        .ok()?;
+    let url = format!("https://html.duckduckgo.com/html/?q={}", urlencode(q));
+    let resp = client.get(url).send().await.ok()?;
+    let html = resp.text().await.ok()?;
+
+    // Parse `.result__snippet` nodes and join up to 3, capped at 700 chars.
+    let doc = Html::parse_document(&html);
+    let selector = Selector::parse(".result__snippet").ok()?;
+    let snippets: Vec<String> = doc
+        .select(&selector)
+        .take(3)
+        .map(|el| collapse_ws(&el.text().collect::<String>()))
+        .filter(|s| !s.is_empty())
+        .collect();
+    if snippets.is_empty() {
+        return None;
+    }
+    let joined = snippets.join(" • ");
