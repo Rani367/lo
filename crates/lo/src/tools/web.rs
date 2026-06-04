@@ -42,3 +42,26 @@ pub async fn web_search(query: &str) -> String {
     if let Some(answer) = instant_answer(q).await {
         return answer;
     }
+
+    // 2) Scrape the top HTML results.
+    if let Some(snippets) = scrape_results(q).await {
+        return snippets;
+    }
+
+    "I could not find anything reliable on that.".to_string()
+}
+
+async fn instant_answer(q: &str) -> Option<String> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(6))
+        .build()
+        .ok()?;
+    let url = format!(
+        "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
+        urlencode(q)
+    );
+    let resp = client.get(url).send().await.ok()?;
+    let d: serde_json::Value = resp.json().await.ok()?;
+
+    if let Some(answer) = d.get("Answer").and_then(|v| v.as_str()) {
+        if !answer.is_empty() {
