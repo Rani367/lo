@@ -65,3 +65,26 @@ async fn instant_answer(q: &str) -> Option<String> {
 
     if let Some(answer) = d.get("Answer").and_then(|v| v.as_str()) {
         if !answer.is_empty() {
+            return Some(answer.to_string());
+        }
+    }
+    if let Some(abstract_text) = d.get("AbstractText").and_then(|v| v.as_str()) {
+        if !abstract_text.is_empty() {
+            return Some(match d.get("AbstractSource").and_then(|v| v.as_str()) {
+                Some(src) if !src.is_empty() => format!("{abstract_text} ({src})"),
+                _ => abstract_text.to_string(),
+            });
+        }
+    }
+    if let Some(topics) = d.get("RelatedTopics").and_then(|v| v.as_array()) {
+        for t in topics {
+            if let Some(text) = t.get("Text").and_then(|v| v.as_str()) {
+                if !text.is_empty() {
+                    return Some(text.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
