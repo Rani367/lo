@@ -111,3 +111,26 @@ async fn scrape_results(q: &str) -> Option<String> {
         return None;
     }
     let joined = snippets.join(" • ");
+    Some(cap_chars(&joined, 700))
+}
+
+// --------------------------------------------------------------------------
+// fetch_url
+// --------------------------------------------------------------------------
+
+/// Fetch a URL and return its readable text. http/https only; SSRF-hardened by
+/// re-validating the host at every redirect hop. Returns `Err(message)` for the
+/// caller to wrap as `Error running fetch_url: …`.
+pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
+    let mut url = parse_http(raw_url)?;
+
+    // A no-redirect client so we follow 3xx manually and re-check the host each
+    // hop. A 10s per-request timeout matches the TS `AbortSignal.timeout`.
+    let client = Client::builder()
+        .redirect(Policy::none())
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("could not build the HTTP client: {e}"))?;
+
+    let mut response: Option<reqwest::Response> = None;
+    for hop in 0..=MAX_REDIRECTS {
