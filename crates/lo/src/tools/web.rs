@@ -180,3 +180,26 @@ pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
         return Err(format!("The server returned {}.", status.as_u16()));
     }
 
+    // Capture the content-type before consuming the body.
+    let content_type = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let bytes = res
+        .bytes()
+        .await
+        .map_err(|_| "The request failed.".to_string())?;
+    let capped = &bytes[..bytes.len().min(MAX_BYTES)];
+    let body = String::from_utf8_lossy(capped);
+
+    let text = if content_type.contains("html") {
+        html_to_text(&body)
+    } else {
+        body.trim().to_string()
+    };
+
+    if text.is_empty() {
+        return Ok("The page had no readable text.".to_string());
