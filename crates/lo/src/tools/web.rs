@@ -203,3 +203,26 @@ pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
 
     if text.is_empty() {
         return Ok("The page had no readable text.".to_string());
+    }
+    Ok(if text.chars().count() > MAX_TEXT {
+        let head: String = text.chars().take(MAX_TEXT).collect();
+        format!("{head} …")
+    } else {
+        text
+    })
+}
+
+/// Parse a string into an http/https URL or fail.
+fn parse_http(raw: &str) -> Result<Url, String> {
+    let url = Url::parse(raw.trim()).map_err(|_| "That is not a valid URL.".to_string())?;
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return Err("Only http and https URLs are allowed.".to_string());
+    }
+    Ok(url)
+}
+
+/// Resolve `hostname` and refuse private/loopback/link-local destinations.
+/// First the literal-host check, then DNS resolution where any private record
+/// aborts. Mirrors `assertPublicHost` in `web.ts`.
+async fn assert_public_host(hostname: &str) -> Result<(), String> {
+    if reject_literal_host(hostname).is_some() {
