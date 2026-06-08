@@ -226,3 +226,26 @@ fn parse_http(raw: &str) -> Result<Url, String> {
 /// aborts. Mirrors `assertPublicHost` in `web.ts`.
 async fn assert_public_host(hostname: &str) -> Result<(), String> {
     if reject_literal_host(hostname).is_some() {
+        return Err("Refusing to fetch a private or local address.".to_string());
+    }
+
+    let resolver = Resolver::builder_tokio()
+        .map_err(|_| format!("Could not resolve {hostname}."))?
+        .build();
+    let lookup = resolver
+        .lookup_ip(hostname)
+        .await
+        .map_err(|_| format!("Could not resolve {hostname}."))?;
+
+    let mut saw_record = false;
+    for ip in lookup.iter() {
+        saw_record = true;
+        if is_private_ip(&ip.to_string()) {
+            return Err("Refusing to fetch a host that resolves to a private address.".to_string());
+        }
+    }
+    if !saw_record {
+        return Err(format!("Could not resolve {hostname}."));
+    }
+    Ok(())
+}
