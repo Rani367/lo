@@ -249,3 +249,25 @@ async fn assert_public_host(hostname: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+// --------------------------------------------------------------------------
+// small text helpers
+// --------------------------------------------------------------------------
+
+/// Strip tags + decode the common HTML entities and collapse whitespace. The
+/// non-HTML/HTML branch of `fetch_url` uses `html2text`; this dependency-free
+/// pass mirrors the TS `htmlToText` for cases where a heavier parse is overkill.
+fn html_to_text(html: &str) -> String {
+    // Prefer html2text for fidelity; it renders to readable plain text.
+    if let Ok(rendered) = html2text::from_read(html.as_bytes(), 100) {
+        let trimmed = rendered.trim();
+        if !trimmed.is_empty() {
+            return collapse_ws(trimmed);
+        }
+    }
+    // Fallback: a minimal entity/tag strip (matches the TS regex pass).
+    let mut s = strip_tags(html);
+    s = s
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
