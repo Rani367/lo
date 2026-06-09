@@ -293,3 +293,25 @@ fn strip_tags(html: &str) -> String {
     out
 }
 
+/// Collapse runs of whitespace into single spaces and trim.
+fn collapse_ws(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Cap a string to `n` chars (by char boundary, not bytes).
+fn cap_chars(s: &str, n: usize) -> String {
+    if s.chars().count() > n {
+        s.chars().take(n).collect()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Percent-encode a query component (RFC 3986 unreserved set is left as-is).
+fn urlencode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() * 3);
+    for &b in s.as_bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
