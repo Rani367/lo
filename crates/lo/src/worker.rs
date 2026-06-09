@@ -15,3 +15,25 @@ use lo_core::LoSettings;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::watch;
 use winit::event_loop::EventLoopProxy;
+
+use crate::audio::AudioHandle;
+use crate::backends::Engine;
+use crate::brain::stream_completion;
+use crate::events::{AppEvent, ToolStatus, UiCommand};
+use crate::ml;
+use crate::tools;
+
+/// Everything the worker needs from `main`.
+pub struct WorkerCtx {
+    pub ui_rx: UnboundedReceiver<UiCommand>,
+    pub proxy: EventLoopProxy<AppEvent>,
+    pub settings: LoSettings,
+    pub audio: AudioHandle,
+    pub epoch_rx: watch::Receiver<u64>,
+}
+
+/// A sentence queued for synthesis, tagged with the epoch it belongs to so the
+/// TTS thread can drop it after a barge-in.
+struct TtsMsg {
+    text: String,
+    speed: f32,
