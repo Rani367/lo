@@ -37,3 +37,25 @@ pub struct WorkerCtx {
 struct TtsMsg {
     text: String,
     speed: f32,
+    epoch: u64,
+}
+
+pub async fn run(mut ctx: WorkerCtx) {
+    let engine = Engine::new();
+    let mut settings = ctx.settings;
+
+    // tools (e.g. set_timer) push announcements here.
+    let (announce_tx, mut announce_rx) = unbounded_channel::<String>();
+    // Sentences for the Kokoro TTS thread.
+    let (tts_tx, tts_rx) = std::sync::mpsc::channel::<TtsMsg>();
+
+    // TTS thread (owns the !Send Kokoro engine, loaded lazily).
+    {
+        let audio = ctx.audio.clone();
+        let epoch_rx = ctx.epoch_rx.clone();
+        let model = settings.tts_model.clone();
+        let voice = settings.voice.clone();
+        let _ = std::thread::Builder::new()
+            .name("lo-tts".into())
+            .spawn(move || tts_thread(tts_rx, audio, epoch_rx, model, voice));
+    }
