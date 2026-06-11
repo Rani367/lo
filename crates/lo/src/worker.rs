@@ -103,3 +103,25 @@ pub async fn run(mut ctx: WorkerCtx) {
                     res = turn => {
                         let result = match res {
                             Ok(r) => r,
+                            Err(e) => {
+                                let _ = ctx.proxy.send_event(AppEvent::Error(format!("{e:#}")));
+                                ChatTurnResult { turn_id: turn_id.clone(), reply: EMPTY_REPLY_FALLBACK.to_string(), ..Default::default() }
+                            }
+                        };
+                        let _ = ctx.proxy.send_event(AppEvent::LlmDone { turn_id: turn_id.clone(), result });
+                    }
+                    _ = wait_epoch_change(&mut erx, epoch) => {
+                        tracing::debug!("turn {turn_id} cancelled (barge-in)");
+                    }
+                }
+            }
+            UiCommand::Cancel { .. } => { /* the epoch watch already aborts the in-flight turn */ }
+            UiCommand::Transcribe { .. } => { /* transcription runs on the listen thread */ }
+            UiCommand::UpdateSettings(s) => {
+                settings = *s;
+                if let Err(e) = engine.restart(&settings).await {
+                    tracing::warn!("engine restart failed: {e:#}");
+                }
+            }
+            UiCommand::Shutdown => {
+                engine.stop();
