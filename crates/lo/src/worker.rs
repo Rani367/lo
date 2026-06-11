@@ -81,3 +81,25 @@ pub async fn run(mut ctx: WorkerCtx) {
         });
     }
 
+    while let Some(cmd) = ctx.ui_rx.recv().await {
+        match cmd {
+            UiCommand::StartTurn {
+                turn_id,
+                history,
+                epoch,
+            } => {
+                let mut erx = ctx.epoch_rx.clone();
+                let turn = handle_turn(
+                    &engine,
+                    &settings,
+                    &ctx.proxy,
+                    &announce_tx,
+                    &tts_tx,
+                    &turn_id,
+                    &history,
+                    epoch,
+                );
+                tokio::select! {
+                    res = turn => {
+                        let result = match res {
+                            Ok(r) => r,
