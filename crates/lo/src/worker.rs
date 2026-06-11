@@ -59,3 +59,25 @@ pub async fn run(mut ctx: WorkerCtx) {
             .name("lo-tts".into())
             .spawn(move || tts_thread(tts_rx, audio, epoch_rx, model, voice));
     }
+
+    // Announcement drainer: surface it as a caption AND speak it.
+    {
+        let proxy = ctx.proxy.clone();
+        let tts_tx = tts_tx.clone();
+        let speed = settings.speech_rate as f32;
+        let epoch_rx = ctx.epoch_rx.clone();
+        tokio::spawn(async move {
+            while let Some(text) = announce_rx.recv().await {
+                let _ = proxy.send_event(AppEvent::Announce(text.clone()));
+                let ep = *epoch_rx.borrow();
+                for chunk in chunk_for_tts_default(&strip_directives(&text)) {
+                    let _ = tts_tx.send(TtsMsg {
+                        text: chunk,
+                        speed,
+                        epoch: ep,
+                    });
+                }
+            }
+        });
+    }
+
