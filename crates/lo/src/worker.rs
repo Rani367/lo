@@ -125,3 +125,25 @@ pub async fn run(mut ctx: WorkerCtx) {
             }
             UiCommand::Shutdown => {
                 engine.stop();
+                break;
+            }
+        }
+    }
+    engine.stop();
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn handle_turn(
+    engine: &Engine,
+    settings: &LoSettings,
+    proxy: &EventLoopProxy<AppEvent>,
+    announce_tx: &UnboundedSender<String>,
+    tts_tx: &StdSender<TtsMsg>,
+    turn_id: &str,
+    history: &[ChatMessage],
+    epoch: u64,
+) -> anyhow::Result<ChatTurnResult> {
+    // Ensure the engine is up (downloads on first run report via ModelDownload).
+    {
+        let p = proxy.clone();
+        let prog = move |label: &str, pct: Option<u8>| {
