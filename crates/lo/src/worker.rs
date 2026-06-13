@@ -235,3 +235,25 @@ async fn handle_turn(
 }
 
 /// Resolve once the current epoch differs from `mine` (barge-in).
+async fn wait_epoch_change(rx: &mut watch::Receiver<u64>, mine: u64) {
+    loop {
+        if *rx.borrow() != mine {
+            return;
+        }
+        if rx.changed().await.is_err() {
+            std::future::pending::<()>().await;
+        }
+    }
+}
+
+/// Owns the Kokoro engine; synthesizes queued sentences and pushes PCM into the
+/// playback ring, dropping any message whose epoch is stale (barge-in).
+fn tts_thread(
+    rx: StdReceiver<TtsMsg>,
+    audio: AudioHandle,
+    epoch_rx: watch::Receiver<u64>,
+    model: String,
+    voice: String,
+) {
+    let mut tts: Option<ml::Tts> = None;
+    let mut load_failed = false;
