@@ -169,3 +169,25 @@ async fn handle_turn(
             let p = proxy.clone();
             let tid = turn_id.to_string();
             let mut on_delta = move |d: &str| {
+                let _ = p.send_event(AppEvent::LlmDelta {
+                    turn_id: tid.clone(),
+                    delta: d.to_string(),
+                });
+            };
+            stream_completion(&endpoint, body, &mut on_delta).await?
+        };
+
+        if calls.is_empty() {
+            final_text = text.trim().to_string();
+            break;
+        }
+
+        let mut results = Vec::with_capacity(calls.len());
+        for call in &calls {
+            let _ = proxy.send_event(AppEvent::LlmTool {
+                turn_id: turn_id.to_string(),
+                tool: call.function.name.clone(),
+                status: ToolStatus::Start,
+                detail: None,
+            });
+            let res = tools::dispatch(
