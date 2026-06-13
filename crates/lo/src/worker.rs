@@ -191,3 +191,25 @@ async fn handle_turn(
                 detail: None,
             });
             let res = tools::dispatch(
+                &call.function.name,
+                &call.function.arguments,
+                settings,
+                announce_tx,
+            )
+            .await;
+            tools_invoked.push(call.function.name.clone());
+            if call.function.name == "web_search" {
+                used_web = true;
+            }
+            let _ = proxy.send_event(AppEvent::LlmTool {
+                turn_id: turn_id.to_string(),
+                tool: call.function.name.clone(),
+                status: ToolStatus::Done,
+                detail: None,
+            });
+            results.push(res);
+        }
+        append_tool_round(&mut convo, &text, calls, results);
+    }
+
+    if final_text.is_empty() {
