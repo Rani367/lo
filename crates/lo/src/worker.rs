@@ -213,3 +213,25 @@ async fn handle_turn(
     }
 
     if final_text.is_empty() {
+        final_text = EMPTY_REPLY_FALLBACK.to_string();
+    }
+
+    // Speak the reply: chunk → TTS thread → gapless playback ring.
+    for chunk in chunk_for_tts_default(&strip_directives(&final_text)) {
+        let _ = tts_tx.send(TtsMsg {
+            text: chunk,
+            speed: settings.speech_rate as f32,
+            epoch,
+        });
+    }
+
+    Ok(ChatTurnResult {
+        turn_id: turn_id.to_string(),
+        reply: final_text,
+        used_web_search: used_web,
+        tools_invoked,
+        error: None,
+    })
+}
+
+/// Resolve once the current epoch differs from `mine` (barge-in).
