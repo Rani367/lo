@@ -147,3 +147,25 @@ async fn handle_turn(
     {
         let p = proxy.clone();
         let prog = move |label: &str, pct: Option<u8>| {
+            let _ = p.send_event(AppEvent::ModelDownload {
+                label: label.to_string(),
+                pct,
+            });
+        };
+        engine.ensure_ready(settings, Some(&prog)).await?;
+    }
+    // Surface engine health to the HUD status dot.
+    let _ = proxy.send_event(AppEvent::ServerStatus(engine.status(settings)));
+
+    let endpoint = engine.endpoint(settings);
+    let mut convo = initial_convo(settings, history);
+    let mut tools_invoked: Vec<String> = Vec::new();
+    let mut used_web = false;
+    let mut final_text = String::new();
+
+    for _round in 0..MAX_ROUNDS {
+        let body = build_request_body(&endpoint.model_id, &convo, settings.temperature);
+        let (text, calls) = {
+            let p = proxy.clone();
+            let tid = turn_id.to_string();
+            let mut on_delta = move |d: &str| {
