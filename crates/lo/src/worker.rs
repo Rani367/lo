@@ -257,3 +257,25 @@ fn tts_thread(
 ) {
     let mut tts: Option<ml::Tts> = None;
     let mut load_failed = false;
+    while let Ok(msg) = rx.recv() {
+        if *epoch_rx.borrow() != msg.epoch {
+            continue; // stale (barged in)
+        }
+        if tts.is_none() && !load_failed {
+            match ml::load_tts(&model, &voice, None) {
+                Ok(t) => tts = Some(t),
+                Err(e) => {
+                    tracing::warn!("TTS unavailable: {e:#}");
+                    load_failed = true;
+                }
+            }
+        }
+        let Some(engine) = tts.as_mut() else { continue };
+        if *epoch_rx.borrow() != msg.epoch {
+            continue;
+        }
+        match engine.synth(&msg.text, msg.speed) {
+            Ok((pcm, sr)) => {
+                if *epoch_rx.borrow() == msg.epoch {
+                    audio.enqueue_pcm(&pcm, sr);
+                }
