@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Partial Info.plist merged into Lo's .app bundle by cargo-packager.
+
+  NSMicrophoneUsageDescription is REQUIRED: without it, macOS TCC kills the
+  process the moment cpal opens an input stream. The string is verbatim from the
+  Electron build's forge.config.ts.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Lo needs the microphone to hear your voice commands.</string>
+    <key>LSMinimumSystemVersion</key>

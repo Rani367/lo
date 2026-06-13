@@ -279,3 +279,8 @@ fn tts_thread(
                 if *epoch_rx.borrow() == msg.epoch {
                     audio.enqueue_pcm(&pcm, sr);
                 }
+            }
+            Err(e) => tracing::warn!("TTS synth failed: {e:#}"),
+        }
+    }
+}
