@@ -12,3 +12,8 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Lo needs the microphone to hear your voice commands.</string>
     <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+  </dict>
+</plist>

@@ -1,0 +1,49 @@
+# CI for the pure-native Rust voice agent.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Fast, reliable gate on all three OSes: fmt + clippy + tests + build with the
+  # heavy on-device ML feature OFF (ML uses the clean stub paths here), so no
+  # whisper.cpp/ONNX-runtime native build is needed cross-platform.
+  check:
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux build deps (ALSA + cmake for aws-lc-rs)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config cmake
+      - name: Windows build deps (NASM for aws-lc-rs)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+      - run: cargo test --workspace --no-default-features
+      - run: cargo build --workspace --no-default-features
+
+  # Verify the heavy on-device ML stack (whisper.cpp via CMake + ort + Kokoro)
+  # actually builds. macOS only — its toolchain (clang + cmake + Metal) is the
+  # reference target and keeps the matrix cheap.
+  ml-build:
+    name: ml-build (macos)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p lo # default features = ml (asr-whisper + tts-kokoro + vad-silero)
