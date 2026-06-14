@@ -84,20 +84,23 @@ impl Gui {
         }))
         .context("request wgpu device")?;
 
-        // Configure the surface. Prefer an sRGB format and an alpha-capable
-        // composite mode so the orchestrator's transparent/frameless window can
-        // blend over the desktop where supported.
+        // Configure the surface. Prefer a NON-sRGB (linear `Unorm`) format and an
+        // alpha-capable composite mode. The orb shader (ported from the WebGL2
+        // build) emits already-display-ready colors; an sRGB surface would apply a
+        // second linear→sRGB gamma curve, washing the orb into an over-bright blob
+        // and lifting the dim bloom/halo. A non-sRGB surface writes the colors
+        // verbatim (matching the original WebGL canvas) — and egui prefers it too.
         let caps = surface.get_capabilities(&adapter);
         let format = caps
             .formats
             .iter()
             .copied()
-            .find(|f| f.is_srgb())
+            .find(|f| !f.is_srgb())
             .unwrap_or_else(|| {
                 caps.formats
                     .first()
                     .copied()
-                    .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb)
+                    .unwrap_or(wgpu::TextureFormat::Bgra8Unorm)
             });
 
         let alpha_mode = pick_alpha_mode(&caps.alpha_modes);
