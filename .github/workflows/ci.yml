@@ -25,9 +25,9 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Linux build deps (ALSA + EGL for wgpu + cmake for aws-lc-rs)
+      - name: Linux native deps (cpal audio + wgpu/xcap GUI + cmake for aws-lc-rs)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libegl-dev pkg-config cmake
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libpipewire-0.3-dev libdrm-dev libgbm-dev libegl-dev pkg-config cmake
       - name: Windows build deps (NASM for aws-lc-rs)
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
@@ -55,9 +55,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Linux build deps (ALSA + EGL for wgpu + cmake for whisper.cpp + aws-lc-rs)
+      - name: Linux native deps (cpal audio + wgpu/xcap GUI + cmake for whisper.cpp + aws-lc-rs)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libegl-dev pkg-config cmake
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libpipewire-0.3-dev libdrm-dev libgbm-dev libegl-dev pkg-config cmake
       - name: Windows build deps (NASM for aws-lc-rs)
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
