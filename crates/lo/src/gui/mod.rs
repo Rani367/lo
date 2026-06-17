@@ -1,9 +1,8 @@
 //! The GUI subsystem — Lo's whole face.
 //!
 //! A single full-bleed wgpu surface renders the "living core" orb ([`orb`]) and,
-//! composited on top, an egui pass draws the live captions ([`captions`]) plus the
-//! minimal chrome (the "lo" wordmark + state dot, and the "hold space to talk"
-//! hint).
+//! composited on top, an egui pass draws the live captions ([`captions`]) plus a
+//! minimal "hold space to talk" hint.
 //!
 //! The orchestrator's event loop owns the [`winit::window::Window`] (and its
 //! transparent/frameless styling) and drives this module through the public API:
@@ -156,7 +155,7 @@ impl Gui {
         self.surface.configure(&self.device, &self.config);
     }
 
-    /// Set the target visual preset for the orb (and the chrome accent).
+    /// Set the target visual preset for the orb.
     pub fn set_state(&mut self, state: LoState) {
         self.state = state;
         self.orb.set_state(state);
@@ -326,73 +325,13 @@ fn pick_alpha_mode(modes: &[wgpu::CompositeAlphaMode]) -> wgpu::CompositeAlphaMo
     Opaque
 }
 
-// --- chrome (wordmark + state dot + hint).
+// --- chrome (the "hold space to talk" hint).
 
-/// Per-state accent colour that re-tints the dot/hint.
-fn accent(state: LoState) -> egui::Color32 {
-    use egui::Color32;
-    match state {
-        LoState::Boot => Color32::from_rgb(0x6b, 0x6f, 0xce), // indigo
-        LoState::Idle => Color32::from_rgb(0x8b, 0x5c, 0xf6), // violet
-        LoState::Listening => Color32::from_rgb(0xff, 0xb5, 0x9e), // peach
-        LoState::Thinking => Color32::from_rgb(0x6b, 0x6f, 0xce), // indigo
-        LoState::Speaking => Color32::from_rgb(0xff, 0x5d, 0x8f), // rose
-        LoState::Error => Color32::from_rgb(0xff, 0x6b, 0x5e), // red
-    }
-}
-
-/// Draw the top-left "lo" wordmark with its pulsing status dot and, while idle/
-/// booting, the "hold space to talk" hint at the bottom.
+/// Draw the "hold space to talk" hint at the bottom while Lo waits (idle/boot);
+/// it is hidden in every active state so the orb stands alone.
 fn draw_chrome(ctx: &egui::Context, state: LoState) {
-    use egui::{Align2, Color32, FontId, Pos2, Rect, RichText, Stroke};
+    use egui::{Align2, Color32, FontId, Rect, RichText, Stroke};
 
-    let acc = accent(state);
-
-    // The dot pulses faster while Lo is in an active turn; the pulse period
-    // varies by state.
-    let period = match state {
-        LoState::Listening | LoState::Speaking => 1.5,
-        LoState::Thinking => 1.0,
-        _ => 3.4,
-    };
-    let t = ctx.input(|i| i.time);
-    let phase = (t / period).fract() as f32;
-    // 0..1..0 triangle eased into a soft pulse (scale 1.0 -> 1.32 -> 1.0).
-    let pulse = 0.5 - 0.5 * (phase * std::f32::consts::TAU).cos();
-    let dot_r = 4.5 * (1.0 + 0.32 * pulse);
-
-    // Wordmark area, top-left (padding ~26px, baseline ~30px down).
-    egui::Area::new(egui::Id::new("lo-wordmark"))
-        .fixed_pos(Pos2::new(26.0, 18.0))
-        .interactable(false)
-        .order(egui::Order::Foreground)
-        .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                // glowing dot
-                let (rect, _) = ui
-                    .allocate_exact_size(egui::vec2(dot_r * 2.0 + 4.0, 26.0), egui::Sense::hover());
-                let center = Pos2::new(rect.left() + dot_r + 2.0, rect.center().y);
-                {
-                    let painter = ui.painter();
-                    // soft halo
-                    painter.circle_filled(
-                        center,
-                        dot_r * 2.4,
-                        Color32::from_rgba_unmultiplied(acc.r(), acc.g(), acc.b(), 40),
-                    );
-                    painter.circle_filled(center, dot_r, acc);
-                }
-                // wordmark text (warm ink, slightly transparent like opacity .82)
-                ui.label(
-                    RichText::new("lo")
-                        .font(FontId::proportional(26.0))
-                        .color(Color32::from_rgba_unmultiplied(0xf6, 0xef, 0xe9, 209)),
-                );
-            });
-        });
-
-    // The hint only invites you while Lo waits (idle/boot); it is hidden in every
-    // active state.
     if matches!(state, LoState::Idle | LoState::Boot) {
         let ink_faint = Color32::from_rgb(0x6f, 0x61, 0x5f);
         egui::Area::new(egui::Id::new("lo-hint"))
