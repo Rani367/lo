@@ -9,6 +9,10 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Roll the audit log over once it grows past this (≈5 MB). Keeps a single `.1`
+/// backup so the on-disk footprint stays bounded without losing recent history.
+pub const MAX_AUDIT_BYTES: u64 = 5 * 1024 * 1024;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Decision {
@@ -50,8 +54,22 @@ pub fn audit_log_to(
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
+    rotate_if_needed(path);
     if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(f, "{json}");
+    }
+}
+
+/// Roll `path` → `path.1` (overwriting any previous `.1`) once it exceeds
+/// [`MAX_AUDIT_BYTES`], so the live log never grows without bound. Best-effort.
+fn rotate_if_needed(path: &Path) {
+    let too_big = std::fs::metadata(path)
+        .map(|m| m.len() >= MAX_AUDIT_BYTES)
+        .unwrap_or(false);
+    if too_big {
+        let mut backup = path.as_os_str().to_owned();
+        backup.push(".1");
+        let _ = std::fs::rename(path, backup);
     }
 }
 
@@ -102,6 +120,22 @@ mod tests {
         assert_eq!(v["tool"], "run_command");
         assert_eq!(v["decision"], "denied");
         assert!(v["t"].is_number());
+    }
+
+    #[test]
+    fn rotates_when_oversized() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lo-audit.log");
+        // Pre-fill past the rotation threshold.
+        std::fs::write(&path, vec![b'x'; (MAX_AUDIT_BYTES + 1) as usize]).unwrap();
+        let args = serde_json::json!({});
+        audit_log_to(&path, "write_file", &args, Decision::Allowed, "");
+        // The oversized log moved to `.1`; the live log holds just the new line.
+        let mut backup = path.clone().into_os_string();
+        backup.push(".1");
+        assert!(std::path::Path::new(&backup).exists(), "backup not created");
+        let body = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(body.lines().count(), 1);
     }
 
     #[test]

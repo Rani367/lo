@@ -17,6 +17,11 @@ use lo_core::brain::types::ToolCall;
 /// How much of a non-2xx error body to surface (the rest is noise).
 const ERROR_BODY_LIMIT: usize = 300;
 
+/// Total attempts for the *initial* request (one retry). We only retry before any
+/// prose has streamed — a transient connection drop or a 5xx while the local
+/// engine is still warming — so a reply is never partially emitted twice.
+const MAX_ATTEMPTS: usize = 2;
+
 /// Stream a single completion from `{endpoint.base_url}/chat/completions`.
 ///
 /// Forwards each assistant prose delta to `on_delta` as it arrives (matching the
@@ -35,29 +40,49 @@ pub async fn stream_completion(
         .build()
         .context("failed to build HTTP client")?;
 
-    let mut req = client.post(&url).json(&body);
-    if let Some(key) = endpoint.api_key.as_deref() {
-        // `authorization: Bearer <key>` only when a key is configured (the TS
-        // `authHeader` helper); local servers stay unauthenticated.
-        req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
-    }
-
-    let res = req
-        .send()
-        .await
-        .with_context(|| format!("brain request failed to send to {url}"))?;
-
-    let status = res.status();
-    if !status.is_success() {
-        // Mirror `Brain request failed (status): detail.slice(0,300)`.
-        let detail = res.text().await.unwrap_or_default();
-        let truncated: String = detail.chars().take(ERROR_BODY_LIMIT).collect();
-        return Err(anyhow!(
-            "Brain request failed ({}): {}",
-            status.as_u16(),
-            truncated
-        ));
-    }
+    // Send with a bounded retry on transient failures (connection error or 5xx),
+    // backing off briefly between attempts. 4xx is a client error — never retried.
+    let res = {
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            let mut req = client.post(&url).json(&body);
+            if let Some(key) = endpoint.api_key.as_deref() {
+                // `authorization: Bearer <key>` only when a key is configured (the
+                // TS `authHeader` helper); local servers stay unauthenticated.
+                req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
+            }
+            match req.send().await {
+                Ok(res) if res.status().is_success() => break res,
+                Ok(res) => {
+                    let status = res.status();
+                    // Retry server errors (engine still warming); fail fast on 4xx.
+                    if status.is_server_error() && attempt < MAX_ATTEMPTS {
+                        tracing::warn!("brain {} (attempt {attempt}); retrying", status.as_u16());
+                        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                        continue;
+                    }
+                    // Mirror `Brain request failed (status): detail.slice(0,300)`.
+                    let detail = res.text().await.unwrap_or_default();
+                    let truncated: String = detail.chars().take(ERROR_BODY_LIMIT).collect();
+                    return Err(anyhow!(
+                        "Brain request failed ({}): {}",
+                        status.as_u16(),
+                        truncated
+                    ));
+                }
+                Err(e) => {
+                    if attempt < MAX_ATTEMPTS {
+                        tracing::warn!("brain request error (attempt {attempt}): {e}; retrying");
+                        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                        continue;
+                    }
+                    return Err(anyhow::Error::new(e))
+                        .with_context(|| format!("brain request failed to send to {url}"));
+                }
+            }
+        }
+    };
 
     let mut acc = StreamAccumulator::new();
     // Buffer raw bytes (not a lossy `String`): a multi-byte UTF-8 char split

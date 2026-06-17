@@ -232,10 +232,13 @@ async fn assert_public_host(hostname: &str) -> Result<(), String> {
     let resolver = Resolver::builder_tokio()
         .map_err(|_| format!("Could not resolve {hostname}."))?
         .build();
-    let lookup = resolver
-        .lookup_ip(hostname)
-        .await
-        .map_err(|_| format!("Could not resolve {hostname}."))?;
+    // Bound the DNS lookup so a hostile/slow resolver can't hang the turn (the
+    // request client has its own timeout, but this pre-flight check does not).
+    let lookup =
+        match tokio::time::timeout(Duration::from_secs(5), resolver.lookup_ip(hostname)).await {
+            Ok(Ok(l)) => l,
+            Ok(Err(_)) | Err(_) => return Err(format!("Could not resolve {hostname}.")),
+        };
 
     let mut saw_record = false;
     for ip in lookup.iter() {

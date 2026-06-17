@@ -14,7 +14,8 @@ use std::path::PathBuf;
 #[cfg(any(
     feature = "asr-whisper",
     feature = "tts-kokoro",
-    feature = "vad-silero"
+    feature = "vad-silero",
+    feature = "wake-openwakeword"
 ))]
 use anyhow::Context;
 
@@ -70,6 +71,47 @@ pub fn fetch(
 
     report(progress, label, Some(100));
     Ok(path)
+}
+
+/// Download a file over HTTPS into Lo's cache (under `openwakeword/`), returning
+/// its local path; cached after the first fetch. Used for the openWakeWord models,
+/// which ship on a GitHub release rather than HuggingFace. Runs a one-off blocking
+/// download on a tiny Tokio runtime (reqwest is async), so it is safe to call from
+/// the std listen thread which has no ambient reactor.
+#[cfg(feature = "wake-openwakeword")]
+pub fn fetch_http(
+    url: &str,
+    file_name: &str,
+    label: &str,
+    progress: Progress<'_>,
+) -> anyhow::Result<PathBuf> {
+    let dir = lo_core::config::paths::cache_dir().join("openwakeword");
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("creating wake-word cache dir {}", dir.display()))?;
+    let dest = dir.join(file_name);
+    if dest.exists() {
+        return Ok(dest);
+    }
+
+    report(progress, label, None);
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("building runtime for wake-word download")?;
+    let bytes = rt
+        .block_on(async {
+            let client = reqwest::Client::builder().build()?;
+            let resp = client.get(url).send().await?.error_for_status()?;
+            Ok::<_, anyhow::Error>(resp.bytes().await?)
+        })
+        .with_context(|| format!("downloading {url}"))?;
+
+    // Write atomically so an interrupted download never leaves a half file cached.
+    let tmp = dest.with_extension("part");
+    std::fs::write(&tmp, &bytes).with_context(|| format!("writing {}", tmp.display()))?;
+    std::fs::rename(&tmp, &dest).with_context(|| format!("finalising {}", dest.display()))?;
+    report(progress, label, Some(100));
+    Ok(dest)
 }
 
 /// Stub used when no ML feature is enabled — keeps the module compiling but never

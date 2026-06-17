@@ -45,6 +45,30 @@ const PRE_SPEECH_PAD_FRAMES: usize = 7;
 const REDEMPTION_FRAMES: usize = 28;
 /// Ignore utterances shorter than 0.4 s (`16000 * 0.4`).
 const MIN_UTTERANCE_SAMPLES: usize = 6400;
+/// Each VAD frame is 512 samples ≈ 32 ms at 16 kHz (for ms↔frame conversion).
+pub const FRAME_MS: f32 = 32.0;
+
+/// Tunable VAD thresholds (exposed via settings/env). Defaults match the constants
+/// above, which mirror the original `@ricky0123/vad-web` v5 behaviour.
+#[derive(Debug, Clone, Copy)]
+pub struct VadTuning {
+    /// Probability at/above which a frame counts as speech.
+    pub positive: f32,
+    /// Probability below which a frame counts as silence.
+    pub negative: f32,
+    /// Sub-positive frames that end a turn (redemption window).
+    pub redemption_frames: usize,
+}
+
+impl Default for VadTuning {
+    fn default() -> Self {
+        Self {
+            positive: POSITIVE_THRESHOLD,
+            negative: NEGATIVE_THRESHOLD,
+            redemption_frames: REDEMPTION_FRAMES,
+        }
+    }
+}
 
 /// Events emitted as frames are pushed, mirroring the TS `VadHandlers` callbacks.
 #[derive(Debug, Clone, PartialEq)]
@@ -69,8 +93,8 @@ pub enum VadEvent {
 #[cfg(feature = "vad-silero")]
 mod imp {
     use super::{
-        Progress, VadEvent, FRAME_SAMPLES, MIN_UTTERANCE_SAMPLES, NEGATIVE_THRESHOLD,
-        POSITIVE_THRESHOLD, PRE_SPEECH_PAD_FRAMES, REDEMPTION_FRAMES, SILERO_FILE, SILERO_REPO,
+        Progress, VadEvent, VadTuning, FRAME_SAMPLES, MIN_UTTERANCE_SAMPLES, PRE_SPEECH_PAD_FRAMES,
+        SILERO_FILE, SILERO_REPO,
     };
     use crate::ml::download;
     use anyhow::Context;
@@ -83,6 +107,8 @@ mod imp {
         session: Session,
         /// LSTM hidden state `[2,1,128]`, threaded between frames; zeroed on reset.
         state: Vec<f32>,
+        /// Tunable thresholds (positive/negative probability, redemption window).
+        tuning: VadTuning,
 
         // ── segmentation state (mirrors the TS fields) ──
         /// True once a frame crossed the positive threshold for the current turn.
@@ -128,7 +154,7 @@ mod imp {
                 }
             }
 
-            if prob >= POSITIVE_THRESHOLD {
+            if prob >= self.tuning.positive {
                 if self.silence_fired {
                     // Resumed talking after a speculative SilenceStart — it's stale.
                     self.silence_fired = false;
@@ -150,13 +176,13 @@ mod imp {
                 self.redemption += 1;
 
                 // Fire speculative SilenceStart on the first clearly-silent frame.
-                if !self.silence_fired && prob < NEGATIVE_THRESHOLD {
+                if !self.silence_fired && prob < self.tuning.negative {
                     self.silence_fired = true;
                     events.push(VadEvent::SilenceStart(self.utterance_clip()));
                 }
 
                 // Redemption elapsed → the turn is over.
-                if self.redemption >= REDEMPTION_FRAMES {
+                if self.redemption >= self.tuning.redemption_frames {
                     let clip = self.utterance_clip();
                     self.end_turn();
                     if clip.len() >= MIN_UTTERANCE_SAMPLES {
@@ -242,19 +268,43 @@ mod imp {
         }
     }
 
-    /// Download the Silero v5 ONNX graph and build the session.
-    pub fn new_vad(progress: Progress<'_>) -> anyhow::Result<Vad> {
+    /// Download the Silero v5 ONNX graph and build the session with `tuning`.
+    ///
+    /// Registers platform execution providers (CoreML on macOS; CUDA/DirectML when
+    /// built with `vad-cuda`/`vad-directml`) with CPU always last as the guaranteed
+    /// fallback. EP registration is non-fatal: an unavailable EP is silently
+    /// skipped — the right behaviour for a tiny always-on model.
+    #[allow(clippy::vec_init_then_push)] // EP vec is conditionally cfg-populated
+    pub fn new_vad(progress: Progress<'_>, tuning: VadTuning) -> anyhow::Result<Vad> {
+        use ort::execution_providers::{CPUExecutionProvider, ExecutionProviderDispatch};
+
         let path = download::fetch(SILERO_REPO, SILERO_FILE, "VAD", progress)
             .context("fetching Silero VAD model")?;
 
-        let session = Session::builder()
+        // Conditionally populated by cfg, so the "init then push" lint misfires.
+        let mut eps: Vec<ExecutionProviderDispatch> = Vec::new();
+        #[cfg(feature = "vad-cuda")]
+        eps.push(ort::execution_providers::CUDAExecutionProvider::default().build());
+        #[cfg(feature = "vad-directml")]
+        eps.push(ort::execution_providers::DirectMLExecutionProvider::default().build());
+        #[cfg(target_os = "macos")]
+        eps.push(ort::execution_providers::CoreMLExecutionProvider::default().build());
+        eps.push(CPUExecutionProvider::default().build());
+
+        let mut builder = Session::builder()
             .context("creating ort session builder")?
+            .with_execution_providers(eps)
+            // ort's builder error carries the builder back and isn't Send/Sync, so
+            // it can't go through anyhow's `context`; format it instead.
+            .map_err(|e| anyhow::anyhow!("registering VAD execution providers: {e}"))?;
+        let session = builder
             .commit_from_file(&path)
             .with_context(|| format!("loading Silero VAD from {}", path.display()))?;
 
         Ok(Vad {
             session,
             state: vec![0.0f32; 2 * 128],
+            tuning,
             is_speaking: false,
             silence_fired: false,
             speech: Vec::new(),
@@ -269,7 +319,7 @@ mod imp {
 
 #[cfg(not(feature = "vad-silero"))]
 mod imp {
-    use super::{Progress, VadEvent};
+    use super::{Progress, VadEvent, VadTuning};
 
     /// Placeholder VAD that exists only so the public type names resolve when the
     /// `vad-silero` feature is off. Never constructed.
@@ -287,7 +337,7 @@ mod imp {
         }
     }
 
-    pub fn new_vad(_progress: Progress<'_>) -> anyhow::Result<Vad> {
+    pub fn new_vad(_progress: Progress<'_>, _tuning: VadTuning) -> anyhow::Result<Vad> {
         anyhow::bail!(
             "voice-activity detection unavailable: built without the `vad-silero` feature"
         )

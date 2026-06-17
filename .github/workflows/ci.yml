@@ -36,14 +36,28 @@ jobs:
       - run: cargo test --workspace --no-default-features
       - run: cargo build --workspace --no-default-features
 
-  # Verify the heavy on-device ML stack (whisper.cpp via CMake + ort + Kokoro)
-  # actually builds. macOS only — its toolchain (clang + cmake + Metal) is the
-  # reference target and keeps the matrix cheap.
+  # Verify the heavy on-device ML stack (whisper.cpp via CMake + ort + Kokoro +
+  # openWakeWord) actually builds on every OS, so a platform-specific toolchain
+  # break is caught before a release. macOS additionally compiles the Metal +
+  # CoreML backends (enabled by default there) and runs the ML-on tests.
   ml-build:
-    name: ml-build (macos)
-    runs-on: macos-latest
+    name: ml-build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build -p lo # default features = ml (asr-whisper + tts-kokoro + vad-silero)
+      - name: Linux build deps (ALSA + cmake for whisper.cpp + aws-lc-rs)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config cmake
+      - name: Windows build deps (NASM for aws-lc-rs)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - run: cargo build -p lo # default features = ml (asr + tts + vad + wake)
+      # ML-on unit tests on the reference target (offline-safe — no model loads).
+      - if: runner.os == 'macOS'
+        run: cargo test -p lo

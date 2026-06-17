@@ -34,8 +34,25 @@ pub struct LoSettings {
     pub user_name: String,
     pub voice_enabled: bool,
     pub temperature: f64,
+    /// Nucleus sampling cutoff (0..1). Sent to every backend.
+    pub top_p: f64,
+    /// Top-k sampling; `0` omits it from the request (local backends only).
+    pub top_k: u32,
+    /// Repetition penalty; `<= 1.0` omits it (sent under both the llama.cpp and
+    /// MLX/vLLM field names so it applies whichever local server is active).
+    pub repeat_penalty: f64,
+    /// Min-p sampling; `0` omits it (local backends only).
+    pub min_p: f64,
     /// Kokoro speed multiplier; >1 speaks faster, pitch unchanged.
     pub speech_rate: f64,
+    /// VAD speech-onset probability (0..1); a frame at/above this counts as speech.
+    pub vad_positive_threshold: f32,
+    /// VAD silence probability (0..1); below this counts as silence.
+    pub vad_negative_threshold: f32,
+    /// VAD silence (ms) that ends a turn after speech.
+    pub vad_redemption_ms: u32,
+    /// Wake-word ("Hey Jarvis") detection score in 0..1 needed to trigger.
+    pub wake_threshold: f32,
     /// `auto` (MLX on Apple Silicon, llama.cpp elsewhere) or an explicit engine.
     pub backend: BackendChoice,
     /// Custom OpenAI-compatible base URL (used when `backend == custom`).
@@ -63,7 +80,18 @@ impl Default for LoSettings {
             user_name: "there".to_string(),
             voice_enabled: true,
             temperature: 0.6,
+            // Sampling tuned for a tool-using local model: focused but not greedy,
+            // with a light repetition penalty to avoid spoken-aloud loops.
+            top_p: 0.95,
+            top_k: 40,
+            repeat_penalty: 1.1,
+            min_p: 0.0,
             speech_rate: 1.15,
+            // Silero VAD defaults (parity with the tuned constants in ml/vad.rs).
+            vad_positive_threshold: 0.6,
+            vad_negative_threshold: 0.4,
+            vad_redemption_ms: 900,
+            wake_threshold: 0.5,
             backend: BackendChoice::Auto,
             llm_url: String::new(),
             llm_key: String::new(),

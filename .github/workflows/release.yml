@@ -1,0 +1,90 @@
+# Tag-triggered release: build + package Lo for every platform and attach the
+# installers to a (draft) GitHub Release. Unsigned for now — the signing secrets
+# below are wired but empty ("pipeline now, sign later"); fill them in to enable
+# real macOS notarization / Windows Authenticode without touching this file.
+name: release
+
+on:
+  push:
+    tags: ["v*"] # v1.0.0, v1.2.3-rc1, …
+  workflow_dispatch: {} # manual dry-run (produces a draft release for tags only)
+
+permissions:
+  contents: write # create the Release + upload assets
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: package (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS bakes in Metal + CoreML (free, no user-side deps), both arches.
+          - { os: macos-14, target: aarch64-apple-darwin, label: macos-arm64, formats: "dmg", extra_features: "" }
+          - { os: macos-13, target: x86_64-apple-darwin, label: macos-x64, formats: "dmg", extra_features: "" }
+          # Windows + Linux default to CPU whisper (portable, no GPU-driver risk).
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, label: windows-x64, formats: "wix,nsis", extra_features: "" }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, label: linux-x64, formats: "deb,appimage", extra_features: "" }
+          # Optional GPU artifacts (uncomment + add the SDK step to ship them):
+          # - { os: windows-latest, target: x86_64-pc-windows-msvc, label: windows-x64-vulkan, formats: "wix,nsis", extra_features: "asr-vulkan" }
+          # - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, label: linux-x64-vulkan, formats: "appimage", extra_features: "asr-vulkan" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Linux build deps (ALSA + cmake for whisper.cpp + aws-lc-rs)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config cmake
+
+      - name: Windows build deps (NASM for aws-lc-rs)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+
+      # Only needed by the optional asr-vulkan matrix entries.
+      - name: Vulkan SDK
+        if: contains(matrix.extra_features, 'vulkan')
+        uses: humbletim/setup-vulkan-sdk@v1.2.1
+
+      - name: Install cargo-packager
+        run: cargo install cargo-packager --locked
+
+      - name: Build release binary (ML on; macOS gets Metal+CoreML via cfg)
+        shell: bash
+        run: |
+          FEATURES="ml"
+          if [ -n "${{ matrix.extra_features }}" ]; then FEATURES="ml,${{ matrix.extra_features }}"; fi
+          cargo build -p lo --release --target ${{ matrix.target }} --features "$FEATURES"
+
+      - name: Package (unsigned; signing secrets wired but empty for now)
+        shell: bash
+        working-directory: crates/lo
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+        run: |
+          cargo packager --release \
+            --target ${{ matrix.target }} \
+            -f ${{ matrix.formats }} \
+            --out-dir ../../dist
+
+      - name: Upload artifacts to the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/*.msi
+            dist/*-setup.exe
+            dist/*.deb
+            dist/*.AppImage
+          draft: true # review before publishing while unsigned
+          generate_release_notes: true

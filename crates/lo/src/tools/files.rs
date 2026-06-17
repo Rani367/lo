@@ -167,6 +167,29 @@ pub async fn move_path(settings: &LoSettings, from: &str, to: &str) -> Result<St
     Ok(format!("Moved {} to {}.", src.display(), dst.display()))
 }
 
+/// Copy a file to a new path (both ends validated; parent dirs created). Refuses
+/// directories — the model has no recursive-copy need and it avoids surprises.
+pub async fn copy_file(settings: &LoSettings, from: &str, to: &str) -> Result<String, String> {
+    let src = resolve(settings, from)?;
+    let dst = resolve(settings, to)?;
+    let meta = tokio::fs::metadata(&src).await.map_err(io_msg)?;
+    if meta.is_dir() {
+        return Err(format!(
+            "{} is a directory; I only copy files.",
+            src.display()
+        ));
+    }
+    if let Some(parent) = dst.parent() {
+        tokio::fs::create_dir_all(parent).await.map_err(io_msg)?;
+    }
+    let bytes = tokio::fs::copy(&src, &dst).await.map_err(io_msg)?;
+    Ok(format!(
+        "Copied {} to {} ({bytes} bytes).",
+        src.display(),
+        dst.display()
+    ))
+}
+
 /// Delete a file or folder (recursively for directories).
 pub async fn delete_path(settings: &LoSettings, path: &str) -> Result<String, String> {
     let abs = resolve(settings, path)?;
@@ -200,4 +223,53 @@ fn resolve(settings: &LoSettings, input: &str) -> Result<std::path::PathBuf, Str
 /// Format an I/O error as a plain message for the tool result.
 fn io_msg(e: std::io::Error) -> String {
     e.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Settings whose only allowed root is `root` (canonicalized so the sandbox's
+    /// realpath check matches it on platforms where the temp dir is symlinked).
+    fn settings_with_root(root: &Path) -> LoSettings {
+        let canon = std::fs::canonicalize(root).unwrap();
+        LoSettings {
+            allowed_fs_roots: vec![canon.to_string_lossy().into_owned()],
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn copy_file_duplicates_within_sandbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let src = dir.path().join("a.txt");
+        std::fs::write(&src, b"hello").unwrap();
+        let dst = dir.path().join("nested/b.txt"); // parent dirs are created
+        let res = copy_file(&s, src.to_str().unwrap(), dst.to_str().unwrap()).await;
+        assert!(res.is_ok(), "{res:?}");
+        assert_eq!(std::fs::read_to_string(&dst).unwrap(), "hello");
+    }
+
+    #[tokio::test]
+    async fn copy_file_refuses_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let sub = dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        let dst = dir.path().join("copy");
+        let res = copy_file(&s, sub.to_str().unwrap(), dst.to_str().unwrap()).await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn copy_file_rejects_destination_outside_sandbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let src = dir.path().join("a.txt");
+        std::fs::write(&src, b"x").unwrap();
+        // Escape attempt via `..` must be rejected by the sandbox.
+        let res = copy_file(&s, src.to_str().unwrap(), "../escape.txt").await;
+        assert!(res.is_err());
+    }
 }

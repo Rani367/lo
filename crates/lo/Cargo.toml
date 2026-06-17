@@ -32,6 +32,10 @@ kokoro-tts = { version = "0.3.3", optional = true }
 lo-core = { path = "../lo-core" }
 notify-rust = "4.17.0"
 open = "5.3.5"
+# ONNX Runtime for Silero VAD + openWakeWord. `download-binaries` (default) fetches
+# a prebuilt ORT; per-platform execution providers are added in the target stanzas
+# / accel features below. Resolves to the latest 2.0.0-rc that also satisfies the
+# rc kokoro-tts pins, so a single ONNX Runtime is linked.
 ort = { version = "2.0.0-rc.10", optional = true }
 pollster = "0.4.0"
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "charset", "http2"] }
@@ -49,33 +53,79 @@ tokio-util = "0.7.18"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 wgpu = "25"
-whisper-rs = { version = "0.16.0", optional = true }
+# Base (CPU) whisper.cpp; per-OS GPU backends are added in the target stanzas /
+# accel features below. `default-features = false` keeps the base build CPU-only.
+whisper-rs = { version = "0.16.0", optional = true, default-features = false }
 winit = "0.30.13"
 xcap = "0.9.6"
 zip = "7.2.0"
+
+# macOS: bake in the Metal GPU backend + the CoreML/ANE delegate for whisper, and
+# the CoreML execution provider for ort (VAD/wake). These need only the Xcode CLT
+# that whisper.cpp's CMake build already requires, so they're on by default here.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16.0", optional = true, default-features = false, features = ["metal", "coreml"] }
+ort = { version = "2.0.0-rc.10", optional = true, features = ["coreml"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [features]
 default = ["ml"]
 # Heavy on-device ML. Each engine is independently toggleable so a host missing a
 # C/C++/CMake toolchain (or building offline) can still produce a working binary
-# (ASR/TTS/VAD degrade to clean stubs when their feature is off).
-ml = ["asr-whisper", "tts-kokoro", "vad-silero"]
+# (ASR/TTS/VAD/wake degrade to clean stubs when their feature is off).
+ml = ["asr-whisper", "tts-kokoro", "vad-silero", "wake-openwakeword"]
 asr-whisper = ["dep:whisper-rs", "dep:hf-hub"]
 tts-kokoro = ["dep:kokoro-tts", "dep:hf-hub"]
 vad-silero = ["dep:ort", "dep:hf-hub"]
+# openWakeWord ("Hey Jarvis") runs on the same ort runtime as the VAD; models are
+# fetched over HTTPS from the openWakeWord GitHub release (not HuggingFace).
+wake-openwakeword = ["dep:ort"]
 
-# Packaging via cargo-packager (Phase 8). Produces .app/.dmg (macOS), .msi/.nsis
-# (Windows), .deb/.rpm/.appimage (Linux). Build with `cargo packager --release`
-# after `cargo install cargo-packager`. Verify the exact key spellings against the
-# installed cargo-packager version before a release.
+# Opt-in GPU acceleration for Linux/Windows (NOT in the default build — each needs
+# an external SDK + a deliberate build; shipped as separate labeled artifacts).
+# macOS GPU is always on via the target stanza above.
+asr-cuda = ["asr-whisper", "whisper-rs/cuda"]      # NVIDIA (Linux/Windows); needs CUDA Toolkit
+asr-vulkan = ["asr-whisper", "whisper-rs/vulkan"]  # cross-vendor GPU; needs Vulkan SDK
+asr-hipblas = ["asr-whisper", "whisper-rs/hipblas"] # AMD ROCm (Linux)
+vad-cuda = ["vad-silero", "ort/cuda"]              # NVIDIA VAD/wake EP
+vad-directml = ["vad-silero", "ort/directml"]      # Windows DirectML VAD/wake EP
+
+# Packaging via cargo-packager. Produces .app/.dmg (macOS), .msi/.nsis (Windows),
+# .deb/.appimage (Linux). Build with `cargo packager --release -f <formats>` from
+# this directory after `cargo install cargo-packager` (paths below resolve relative
+# to this manifest). The release workflow (.github/workflows/release.yml) runs it
+# per OS. Signing is left unconfigured ("pipeline now, sign later") — the commented
+# slots below + the matching GitHub secrets enable real signing/notarization later.
 [package.metadata.packager]
 product-name = "Lo"
 identifier = "com.lo.assistant"
 category = "Utility"
 description = "A fast, local, pure-native Rust voice agent."
 icons = ["assets/icons/icon.png", "assets/icons/icon.icns", "assets/icons/icon.ico"]
+# The CLI's `-f` flag selects valid formats per OS; this is the full set.
+formats = ["dmg", "app", "nsis", "wix", "deb", "appimage"]
 
 [package.metadata.packager.macos]
 # Critical: merges NSMicrophoneUsageDescription so macOS lets cpal open the mic.
 info-plist-path = "assets/macos/Info.plist"
 minimum-system-version = "11.0"
+# --- REAL SIGNING / NOTARIZATION (fill in when certs exist) ---
+# signing-identity = "Developer ID Application: YOUR NAME (TEAMID)"
+# provider-short-name = "TEAMID"
+# Notarization reads APPLE_ID / APPLE_PASSWORD (app-specific) / APPLE_TEAM_ID
+# from the environment at package time (wired as empty GitHub secrets today).
+
+[package.metadata.packager.windows]
+# --- REAL CODE SIGNING (fill in when an Authenticode cert exists) ---
+# certificate-thumbprint = "<SHA1 of the installed cert>"
+# digest-algorithm = "sha256"
+# timestamp-url = "http://timestamp.digicert.com"
+
+[package.metadata.packager.deb]
+# Runtime deps so the .deb installs cleanly on a fresh box (ALSA for cpal).
+depends = ["libasound2", "libc6"]
+section = "sound"
+priority = "optional"
+desktop-template = "assets/linux/lo.desktop"

@@ -24,6 +24,9 @@ use lo_core::LoSettings;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
+/// A compact local timestamp used to ground the brain's system context.
+pub use desktop::datetime_context;
+
 /// Execute a requested tool by name and return a string result for the brain.
 ///
 /// Mirrors `dispatchTool` in `registry.ts`:
@@ -181,6 +184,9 @@ async fn execute(
         }
         "move_path" => {
             files::move_path(settings, &str_arg(args, "from"), &str_arg(args, "to")).await
+        }
+        "copy_file" => {
+            files::copy_file(settings, &str_arg(args, "from"), &str_arg(args, "to")).await
         }
         "delete_path" => files::delete_path(settings, &str_arg(args, "path")).await,
 

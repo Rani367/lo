@@ -201,6 +201,13 @@ pub fn get_datetime() -> String {
     )
 }
 
+/// A compact local timestamp for grounding the brain's system context, e.g.
+/// `Sunday, 14 June 2026, 19:46`. Uses zero-padded `%d`/`%H` for cross-platform
+/// `chrono` formatting (the `%-d` flag isn't portable to Windows).
+pub fn datetime_context() -> String {
+    Local::now().format("%A, %d %B %Y, %H:%M").to_string()
+}
+
 // ---------- helpers ----------
 
 /// Spawn an argv-only command, capturing nothing; error on non-zero exit or a

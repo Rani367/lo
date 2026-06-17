@@ -84,6 +84,15 @@ mod imp {
         FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
     };
 
+    /// True when this build compiled a whisper.cpp GPU backend. Metal is always
+    /// compiled on macOS here; CUDA/Vulkan/hipBLAS are opt-in on Linux/Windows.
+    const GPU_BUILD: bool = cfg!(any(
+        target_os = "macos",
+        feature = "asr-cuda",
+        feature = "asr-vulkan",
+        feature = "asr-hipblas",
+    ));
+
     /// A loaded whisper.cpp model. The [`WhisperContext`] holds the weights; a
     /// fresh [`WhisperState`] is created per `transcribe` call (cheap relative to
     /// loading, and keeps decodes independent — matching the TS one-shot calls).
@@ -116,6 +125,9 @@ mod imp {
             params.set_print_realtime(false);
             params.set_print_timestamps(false);
             params.set_suppress_blank(true);
+            // Reject clips the model scores as non-speech, cutting hallucinated
+            // transcripts on silence/noise (PTT release with no speech, room tone).
+            params.set_no_speech_thold(0.6);
             // Each clip is an independent utterance.
             params.set_no_context(true);
             // Use all but one core, like whisper.cpp's defaults, min 1.
@@ -143,6 +155,10 @@ mod imp {
     }
 
     /// Download the mapped GGML weight and build a [`WhisperContext`] once.
+    ///
+    /// Uses the compiled GPU backend (Metal/CUDA/Vulkan/hipBLAS) when available,
+    /// falling back to CPU if GPU context creation fails or `LO_WHISPER_CPU=1` is
+    /// set (a support escape hatch). CPU is always correct, just slower.
     pub fn load_asr(model_setting: &str, progress: Progress<'_>) -> anyhow::Result<Asr> {
         let ggml_file = ggml_file_for(model_setting);
         let english_only = is_english_only(&ggml_file);
@@ -153,8 +169,27 @@ mod imp {
             .to_str()
             .context("whisper model path is not valid UTF-8")?;
 
-        let ctx = WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
-            .with_context(|| format!("loading whisper model {ggml_file}"))?;
+        let force_cpu = std::env::var("LO_WHISPER_CPU").is_ok();
+        let ctx = if GPU_BUILD && !force_cpu {
+            let mut params = WhisperContextParameters::default();
+            params.use_gpu(true);
+            match WhisperContext::new_with_params(path_str, params) {
+                Ok(ctx) => {
+                    tracing::info!("whisper: GPU backend active");
+                    ctx
+                }
+                Err(e) => {
+                    tracing::warn!("whisper GPU init failed ({e}); falling back to CPU");
+                    WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
+                        .with_context(|| {
+                            format!("loading whisper model {ggml_file} (CPU fallback)")
+                        })?
+                }
+            }
+        } else {
+            WhisperContext::new_with_params(path_str, WhisperContextParameters::default())
+                .with_context(|| format!("loading whisper model {ggml_file}"))?
+        };
 
         Ok(Asr { ctx, english_only })
     }

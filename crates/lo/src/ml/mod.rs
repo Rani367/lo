@@ -27,5 +27,5 @@ pub mod wakeword;
 
 pub use asr::{load_asr, Asr};
 pub use tts::{load_tts, Tts};
-pub use vad::{new_vad, Vad, VadEvent};
-pub use wakeword::{DisabledWake, WakeWord};
+pub use vad::{new_vad, Vad, VadEvent, VadTuning};
+pub use wakeword::{load_wakeword, WakeWord};

@@ -7,7 +7,8 @@
 use std::sync::mpsc::{Receiver as StdReceiver, Sender as StdSender};
 
 use lo_core::brain::{
-    append_tool_round, build_request_body, initial_convo, EMPTY_REPLY_FALLBACK, MAX_ROUNDS,
+    append_tool_round, build_request_body, initial_convo_with_time, Sampling, EMPTY_REPLY_FALLBACK,
+    MAX_ROUNDS,
 };
 use lo_core::text::{chunk_for_tts_default, strip_directives};
 use lo_core::types::{ChatMessage, ChatTurnResult};
@@ -79,6 +80,27 @@ pub async fn run(mut ctx: WorkerCtx) {
                 }
             }
         });
+    }
+
+    // Prewarm: bring the engine up now (downloads on first run report via
+    // ModelDownload) so the first real turn isn't gated on model load. It is
+    // idempotent — `handle_turn` re-checks readiness with a fast health poll.
+    {
+        let p = ctx.proxy.clone();
+        let prog = move |label: &str, pct: Option<u8>| {
+            let _ = p.send_event(AppEvent::ModelDownload {
+                label: label.to_string(),
+                pct,
+            });
+        };
+        match engine.ensure_ready(&settings, Some(&prog)).await {
+            Ok(()) => {
+                let _ = ctx
+                    .proxy
+                    .send_event(AppEvent::ServerStatus(engine.status(&settings)));
+            }
+            Err(e) => tracing::warn!("engine prewarm failed (will retry on first turn): {e:#}"),
+        }
     }
 
     while let Some(cmd) = ctx.ui_rx.recv().await {
@@ -158,13 +180,15 @@ async fn handle_turn(
     let _ = proxy.send_event(AppEvent::ServerStatus(engine.status(settings)));
 
     let endpoint = engine.endpoint(settings);
-    let mut convo = initial_convo(settings, history);
+    let now = crate::tools::datetime_context();
+    let mut convo = initial_convo_with_time(settings, history, Some(&now));
     let mut tools_invoked: Vec<String> = Vec::new();
     let mut used_web = false;
     let mut final_text = String::new();
 
+    let sampling = Sampling::from_settings(settings);
     for _round in 0..MAX_ROUNDS {
-        let body = build_request_body(&endpoint.model_id, &convo, settings.temperature);
+        let body = build_request_body(&endpoint.model_id, &convo, sampling);
         let (text, calls) = {
             let p = proxy.clone();
             let tid = turn_id.to_string();

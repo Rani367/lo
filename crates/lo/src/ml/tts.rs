@@ -13,6 +13,12 @@
 //!
 //! Feature-gated behind `tts-kokoro`; with the feature off, [`load_tts`] returns a
 //! descriptive error.
+//!
+//! Note: `kokoro-tts` 0.3.3 creates its ONNX `Session` internally and exposes no
+//! hook to pass execution providers, so synthesis runs on **CPU** even where ASR
+//! (whisper) and the VAD use a GPU/CoreML backend. Kokoro is small (~82M) and
+//! chunks are short, so CPU latency is acceptable; GPU TTS would require an
+//! upstream `with_session_builder`-style API.
 
 use crate::ml::download::Progress;
 

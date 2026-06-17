@@ -11,8 +11,10 @@ pub struct ModelTier {
     pub min_ram_gb: u32,
     /// MLX weight id (Apple Silicon).
     pub mlx: &'static str,
-    /// GGUF reference `owner/repo:file.gguf` (llama.cpp / Ollama path).
+    /// GGUF reference `owner/repo:file.gguf` (llama.cpp path).
     pub gguf: &'static str,
+    /// Ollama model tag for this tier (the `ollama pull` name).
+    pub ollama: &'static str,
 }
 
 /// Capability ladder, largest first.
@@ -23,24 +25,28 @@ pub const MODEL_TIERS: &[ModelTier] = &[
         mlx: "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit-DWQ",
         gguf:
             "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Qwen3-Coder-30B-A3B-Instruct-UD-Q4_K_XL.gguf",
+        ollama: "qwen3-coder:30b",
     },
     ModelTier {
         label: "Qwen3-14B",
         min_ram_gb: 24,
         mlx: "mlx-community/Qwen3-14B-4bit",
         gguf: "unsloth/Qwen3-14B-GGUF:Qwen3-14B-UD-Q4_K_XL.gguf",
+        ollama: "qwen3:14b",
     },
     ModelTier {
         label: "Qwen3-8B",
         min_ram_gb: 16,
         mlx: "mlx-community/Qwen3-8B-4bit",
         gguf: "unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf",
+        ollama: "qwen3:8b",
     },
     ModelTier {
         label: "Qwen3-4B",
         min_ram_gb: 8,
         mlx: "mlx-community/Qwen3-4B-4bit",
         gguf: "unsloth/Qwen3-4B-Instruct-2507-GGUF:Qwen3-4B-Instruct-2507-UD-Q4_K_XL.gguf",
+        ollama: "qwen3:4b",
     },
 ];
 

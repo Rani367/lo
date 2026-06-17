@@ -115,6 +115,17 @@ fn split_sentences(text: &str) -> Vec<String> {
 
     while i < n {
         if is_term(chars[i]) {
+            // A '.' between two digits is a decimal point (e.g. "3.5"), not a
+            // sentence end — splitting there makes Kokoro read it as two chunks.
+            if chars[i] == '.'
+                && i > 0
+                && i + 1 < n
+                && chars[i - 1].is_ascii_digit()
+                && chars[i + 1].is_ascii_digit()
+            {
+                i += 1;
+                continue;
+            }
             // consume the run of terminal punctuation
             while i < n && is_term(chars[i]) {
                 i += 1;
@@ -265,6 +276,16 @@ mod tests {
         assert_eq!(strip_directives("a [b"), "a [b");
         let long = format!("x [{}] y", "z".repeat(50));
         assert_eq!(strip_directives(&long), long.replace("  ", " "));
+    }
+
+    #[test]
+    fn decimal_points_do_not_split_sentences() {
+        // A small budget forces one chunk per sentence; "3.5" must stay intact
+        // inside its sentence rather than being split at the decimal point.
+        let chunks = chunk_for_tts("It costs 3.5 dollars total. Thanks for asking.", 30);
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert!(chunks[0].contains("3.5 dollars"), "{chunks:?}");
+        assert!(chunks[1].starts_with("Thanks"), "{chunks:?}");
     }
 
     #[test]

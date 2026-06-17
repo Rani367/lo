@@ -61,6 +61,40 @@ pub fn resolve_backend_kind_for(
     }
 }
 
+/// The literal `model` value that means "pick the best model for this machine".
+pub const AUTO_MODEL: &str = "auto";
+
+/// The model id shipped in `LoSettings::default()`. When the settings still carry
+/// it (i.e. the user never chose a model), treat selection as automatic and pick
+/// by RAM rather than forcing the 30B everywhere — the bug this fixes.
+pub const DEFAULT_MODEL_SENTINEL: &str = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit-DWQ";
+
+/// Resolve the logical model id to actually use, applying the hardware RAM ladder
+/// when the user left the model on `auto`/the shipped default. An explicit
+/// non-default `settings_model` is always honored verbatim.
+///
+/// `ram_bytes` is the OS-reported total memory (the bin crate passes
+/// `sysinfo`'s value; `LO_RAM_GB` still overrides inside [`models::total_ram_gb`]).
+/// The tier maps to the right artifact for the active backend: the MLX weight,
+/// the GGUF ref, or the Ollama tag. Custom endpoints define their own model, so
+/// the value is passed through unchanged.
+pub fn resolve_model_id(settings_model: &str, kind: BackendKind, ram_bytes: u64) -> String {
+    let m = settings_model.trim();
+    let automatic =
+        m.is_empty() || m.eq_ignore_ascii_case(AUTO_MODEL) || m == DEFAULT_MODEL_SENTINEL;
+    if !automatic {
+        return m.to_string();
+    }
+    let tier = models::recommend_tier(models::total_ram_gb(ram_bytes));
+    match kind {
+        BackendKind::Mlx => tier.mlx.to_string(),
+        BackendKind::Llama => tier.gguf.to_string(),
+        BackendKind::Ollama => tier.ollama.to_string(),
+        // A custom endpoint's model is whatever it serves; don't invent one.
+        BackendKind::Custom => m.to_string(),
+    }
+}
+
 /// Resolve the endpoint for the active backend, honoring the same `LO_*` env
 /// overrides the TS accessors used.
 pub fn resolve_endpoint(settings: &LoSettings) -> BackendEndpoint {
@@ -182,6 +216,41 @@ mod tests {
         assert_eq!(
             resolve_backend_kind_for(BackendChoice::Llama, false, true),
             BackendKind::Llama
+        );
+    }
+
+    #[test]
+    fn auto_model_uses_ram_ladder_per_backend() {
+        // 8 GB → smallest tier (Qwen3-4B), mapped to each backend's artifact.
+        let gb8 = 8u64 * 1_000_000_000;
+        assert_eq!(
+            resolve_model_id(AUTO_MODEL, BackendKind::Mlx, gb8),
+            "mlx-community/Qwen3-4B-4bit"
+        );
+        assert_eq!(
+            resolve_model_id(AUTO_MODEL, BackendKind::Ollama, gb8),
+            "qwen3:4b"
+        );
+        assert!(resolve_model_id(AUTO_MODEL, BackendKind::Llama, gb8).contains("Qwen3-4B"));
+        // The shipped default sentinel is treated as "auto" too.
+        let gb64 = 64u64 * 1_000_000_000;
+        assert_eq!(
+            resolve_model_id(DEFAULT_MODEL_SENTINEL, BackendKind::Mlx, gb64),
+            "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit-DWQ"
+        );
+    }
+
+    #[test]
+    fn explicit_model_is_honored_verbatim() {
+        let gb8 = 8u64 * 1_000_000_000;
+        assert_eq!(
+            resolve_model_id("mlx-community/Qwen3-14B-4bit", BackendKind::Mlx, gb8),
+            "mlx-community/Qwen3-14B-4bit"
+        );
+        // Custom endpoints define their own model; auto passes through.
+        assert_eq!(
+            resolve_model_id(AUTO_MODEL, BackendKind::Custom, gb8),
+            AUTO_MODEL
         );
     }
 

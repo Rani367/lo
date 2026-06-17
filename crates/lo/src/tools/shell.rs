@@ -76,14 +76,13 @@ pub async fn run_command(
         ));
     }
 
-    let body = [out, err_out]
-        .into_iter()
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n");
-    Ok(if body.is_empty() {
-        "Command completed with no output.".to_string()
-    } else {
-        truncate_output(&body)
-    })
+    // Label the streams only when both carry text, so the model can tell a
+    // warning on stderr from real output; a single stream stays unadorned.
+    let body = match (out.is_empty(), err_out.is_empty()) {
+        (true, true) => return Ok("Command completed with no output.".to_string()),
+        (false, true) => out,
+        (true, false) => err_out,
+        (false, false) => format!("stdout:\n{out}\nstderr:\n{err_out}"),
+    };
+    Ok(truncate_output(&body))
 }

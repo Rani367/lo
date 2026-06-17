@@ -1,0 +1,11 @@
+[Desktop Entry]
+Categories={{categories}}
+{{#if comment}}Comment={{comment}}{{/if}}
+Exec={{exec}}{{#if exec_arg}} {{exec_arg}}{{/if}}
+Icon={{icon}}
+Name={{name}}
+Terminal=false
+Type=Application
+Keywords=voice;assistant;ai;jarvis;speech;local;
+StartupWMClass=Lo
+{{#if mime_type}}MimeType={{mime_type}}{{/if}}

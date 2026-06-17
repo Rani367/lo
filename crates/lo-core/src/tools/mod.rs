@@ -176,6 +176,8 @@ fn build_registry() -> Vec<ToolSchema> {
             obj(serde_json::json!({ "path": str_param("Absolute or ~ path."), "content": str_param("The file contents."), "overwrite": { "type": "boolean", "description": "Allow replacing an existing file." } }), &["path", "content"])),
         tool(Danger, "move_path", "Move or rename a file or folder (within the allowed folders).",
             obj(serde_json::json!({ "from": str_param("Source path."), "to": str_param("Destination path.") }), &["from", "to"])),
+        tool(Danger, "copy_file", "Copy a file to a new path (within the allowed folders).",
+            obj(serde_json::json!({ "from": str_param("Source file path."), "to": str_param("Destination path.") }), &["from", "to"])),
         tool(Danger, "delete_path", "Delete a file or folder (within the allowed folders).",
             obj(serde_json::json!({ "path": str_param("Absolute or ~ path.") }), &["path"])),
 
@@ -190,8 +192,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_has_all_21_tools() {
-        assert_eq!(tool_schemas().len(), 21);
+    fn registry_has_all_22_tools() {
+        assert_eq!(tool_schemas().len(), 22);
     }
 
     #[test]
@@ -202,6 +204,7 @@ mod tests {
         assert_eq!(tier_for("open_path"), Tier::Confirm);
         assert_eq!(tier_for("write_file"), Tier::Danger);
         assert_eq!(tier_for("move_path"), Tier::Danger);
+        assert_eq!(tier_for("copy_file"), Tier::Danger);
         assert_eq!(tier_for("delete_path"), Tier::Danger);
         assert_eq!(tier_for("run_command"), Tier::Danger);
         // Unknown tools default to Safe (matching `?? 'safe'`).
@@ -234,7 +237,7 @@ mod tests {
     fn advertised_json_omits_tier_and_keeps_schema() {
         let json = tool_schemas_json();
         let arr = json.as_array().unwrap();
-        assert_eq!(arr.len(), 21);
+        assert_eq!(arr.len(), 22);
         let first = &arr[0];
         assert_eq!(first["type"], "function");
         assert!(first["function"]["name"].is_string());
@@ -247,6 +250,7 @@ mod tests {
         let names = tool_names();
         assert!(names.contains("web_search"));
         assert!(names.contains("run_command"));
-        assert_eq!(names.split(", ").count(), 21);
+        assert!(names.contains("copy_file"));
+        assert_eq!(names.split(", ").count(), 22);
     }
 }

@@ -8,7 +8,7 @@ pub mod state;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use lo_core::types::LoState;
 use lo_core::LoSettings;
@@ -16,7 +16,13 @@ use tokio::sync::{mpsc::UnboundedSender, watch};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
+
+/// Idle redraw cadence (~30 fps). While active (listening/thinking/speaking,
+/// audio playing, or the boot reveal) we redraw at the display's full rate.
+const IDLE_FRAME: Duration = Duration::from_millis(33);
+/// The orb's boot-reveal duration; redraw at full rate until it finishes.
+const BOOT_SECONDS: f32 = 1.3;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
@@ -33,6 +39,8 @@ pub struct AppCtx {
     pub epoch_tx: watch::Sender<u64>,
     pub ptt_active: Arc<AtomicBool>,
     pub settings: LoSettings,
+    /// `--say "<text>"`: a synthetic transcript injected once the window is up.
+    pub pending_say: Option<String>,
 }
 
 pub struct App {
@@ -50,6 +58,9 @@ pub struct App {
     window: Option<Arc<Window>>,
     start: Instant,
     last_frame: Instant,
+    /// Next scheduled idle redraw (used to cap idle rendering to ~30 fps).
+    next_idle: Instant,
+    pending_say: Option<String>,
 }
 
 impl App {
@@ -67,7 +78,17 @@ impl App {
             window: None,
             start: now,
             last_frame: now,
+            next_idle: now,
+            pending_say: ctx.pending_say,
         }
+    }
+
+    /// Whether the scene needs full-rate (vsync) redraws right now. When false the
+    /// orb's slow idle breathing/status pulse still animate, just throttled.
+    fn animating(&self) -> bool {
+        self.session.state != LoState::Idle
+            || self.audio.is_playing()
+            || self.start.elapsed().as_secs_f32() < BOOT_SECONDS
     }
 
     /// Space pressed/released → push-to-talk (ptt is the default activation mode).
@@ -231,6 +252,13 @@ impl ApplicationHandler<AppEvent> for App {
         if let Some(w) = &self.window {
             w.request_redraw();
         }
+
+        // `--say`: inject a synthetic transcript to drive one full turn (for
+        // visual / end-to-end testing without a microphone).
+        if let Some(text) = self.pending_say.take() {
+            tracing::info!("injecting --say transcript: {text:?}");
+            self.on_app_event(AppEvent::Transcribed { id: 0, text });
+        }
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
@@ -258,10 +286,22 @@ impl ApplicationHandler<AppEvent> for App {
         self.on_app_event(event);
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        // Drive continuous animation. (A 30 fps idle throttle is a later polish.)
-        if let Some(w) = &self.window {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let Some(w) = &self.window else { return };
+        if self.animating() {
+            // Full rate: each redraw renders and loops straight back here; the
+            // Fifo present mode caps it to the display refresh.
             w.request_redraw();
+            event_loop.set_control_flow(ControlFlow::Wait);
+        } else {
+            // Idle: redraw only when the ~30 fps slot is due, then sleep until the
+            // next one — keeps the idle orb alive without pinning the GPU.
+            let now = Instant::now();
+            if now >= self.next_idle {
+                w.request_redraw();
+                self.next_idle = now + IDLE_FRAME;
+            }
+            event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_idle));
         }
     }
 }
