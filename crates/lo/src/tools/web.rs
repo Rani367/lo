@@ -1,5 +1,7 @@
 //! Web tools: `web_search` (DuckDuckGo, no cloud AI) and `fetch_url` (a
-//! SSRF-hardened page fetch). Ported from `src/main/tools/{websearch,web}.ts`.
+//! SSRF-hardened page fetch). `web_search` queries DuckDuckGo's Instant Answer
+//! API and falls back to scraping its HTML results; `fetch_url` pulls a page and
+//! renders it to readable text.
 //!
 //! `fetch_url` is security-critical: only http/https, and at EVERY redirect hop
 //! the host is re-validated — first the literal-host check from
@@ -125,7 +127,7 @@ pub async fn fetch_url(raw_url: &str) -> Result<String, String> {
     let mut url = parse_http(raw_url)?;
 
     // A no-redirect client so we follow 3xx manually and re-check the host each
-    // hop. A 10s per-request timeout matches the TS `AbortSignal.timeout`.
+    // hop. A 10s per-request timeout bounds a slow or stalled server.
     let client = Client::builder()
         .redirect(Policy::none())
         .timeout(Duration::from_secs(10))
@@ -223,7 +225,7 @@ fn parse_http(raw: &str) -> Result<Url, String> {
 
 /// Resolve `hostname` and refuse private/loopback/link-local destinations.
 /// First the literal-host check, then DNS resolution where any private record
-/// aborts. Mirrors `assertPublicHost` in `web.ts`.
+/// aborts.
 async fn assert_public_host(hostname: &str) -> Result<(), String> {
     if reject_literal_host(hostname).is_some() {
         return Err("Refusing to fetch a private or local address.".to_string());
@@ -257,9 +259,8 @@ async fn assert_public_host(hostname: &str) -> Result<(), String> {
 // small text helpers
 // --------------------------------------------------------------------------
 
-/// Strip tags + decode the common HTML entities and collapse whitespace. The
-/// non-HTML/HTML branch of `fetch_url` uses `html2text`; this dependency-free
-/// pass mirrors the TS `htmlToText` for cases where a heavier parse is overkill.
+/// Render HTML to readable plain text: prefer `html2text` for fidelity, and fall
+/// back to a dependency-free tag/entity strip when that yields nothing.
 fn html_to_text(html: &str) -> String {
     // Prefer html2text for fidelity; it renders to readable plain text.
     if let Ok(rendered) = html2text::from_read(html.as_bytes(), 100) {
@@ -268,7 +269,7 @@ fn html_to_text(html: &str) -> String {
             return collapse_ws(trimmed);
         }
     }
-    // Fallback: a minimal entity/tag strip (matches the TS regex pass).
+    // Fallback: a minimal entity/tag strip.
     let mut s = strip_tags(html);
     s = s
         .replace("&nbsp;", " ")
@@ -322,4 +323,42 @@ fn urlencode(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strip_tags_removes_markup() {
+        assert_eq!(strip_tags("<p>Hi <b>there</b></p>"), "Hi there");
+        assert_eq!(strip_tags("no tags"), "no tags");
+    }
+
+    #[test]
+    fn collapse_ws_normalises_whitespace() {
+        assert_eq!(collapse_ws("  a\n\t b   c "), "a b c");
+        assert_eq!(collapse_ws(""), "");
+    }
+
+    #[test]
+    fn html_to_text_falls_back_to_entity_strip() {
+        // A tag-only fragment html2text renders empty → the fallback strips tags
+        // and decodes entities.
+        let out = html_to_text("<span>Tom &amp; Jerry &lt;3</span>");
+        assert!(out.contains("Tom & Jerry <3"), "{out}");
+    }
+
+    #[test]
+    fn cap_chars_respects_char_boundaries() {
+        // Multi-byte chars must not be split mid-codepoint.
+        assert_eq!(cap_chars("héllo", 3), "hél");
+        assert_eq!(cap_chars("hi", 10), "hi");
+    }
+
+    #[test]
+    fn urlencode_keeps_unreserved_escapes_rest() {
+        assert_eq!(urlencode("a b&c"), "a%20b%26c");
+        assert_eq!(urlencode("safe-_.~"), "safe-_.~");
+    }
 }

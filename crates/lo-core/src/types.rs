@@ -1,12 +1,11 @@
-//! Shared types — the contract that, in the Electron app, crossed the main↔renderer
-//! IPC boundary (`src/shared/types.ts`). In the single-process Rust app these are
-//! plain values passed over channels (see the eventual `app::events`), but the
-//! shapes are preserved 1:1 so `settings.json` and the chat protocol stay
-//! byte-compatible with the TypeScript build.
+//! Shared data types: the contract for settings persistence, UI state signaling,
+//! and the chat protocol. These are plain values passed between threads over
+//! channels; `settings.json` uses a stable camelCase shape so saved settings and
+//! history round-trip across versions.
 
 use serde::{Deserialize, Serialize};
 
-/// The renderer/UI state machine.
+/// The UI state machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LoState {
@@ -22,12 +21,12 @@ pub enum LoState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ActivationMode {
-    /// Wake word ("Computer").
-    Wake,
-    /// Push-to-talk (hold Space).
-    Ptt,
-    /// Voice-activity detection (auto-segment).
+    /// Hands-free: voice-activity detection auto-segments speech and ends the turn
+    /// when you stop talking. Holding Space still works as a push-to-talk override.
     Vad,
+    /// Push-to-talk only: audio is captured and transcribed only while Space is
+    /// held — no always-on speech detection.
+    Ptt,
 }
 
 /// A concrete LLM engine.
@@ -62,7 +61,7 @@ pub enum BackendChoice {
     Custom,
 }
 
-/// A chat message exchanged with the brain (the renderer-facing shape: no
+/// A chat message exchanged with the brain (the UI-facing shape: no
 /// `tool`/`tool_calls`; the agent loop's richer message lives in `brain::types`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatMessage {

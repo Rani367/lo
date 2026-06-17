@@ -3,7 +3,7 @@
 //! A single full-bleed wgpu surface renders the "living core" orb ([`orb`]) and,
 //! composited on top, an egui pass draws the live captions ([`captions`]) plus the
 //! minimal chrome (the "lo" wordmark + state dot, and the "hold space to talk"
-//! hint) ported from `index.html` / `styles.css`.
+//! hint).
 //!
 //! The orchestrator's event loop owns the [`winit::window::Window`] (and its
 //! transparent/frameless styling) and drives this module through the public API:
@@ -85,11 +85,11 @@ impl Gui {
         .context("request wgpu device")?;
 
         // Configure the surface. Prefer a NON-sRGB (linear `Unorm`) format and an
-        // alpha-capable composite mode. The orb shader (ported from the WebGL2
-        // build) emits already-display-ready colors; an sRGB surface would apply a
-        // second linear→sRGB gamma curve, washing the orb into an over-bright blob
-        // and lifting the dim bloom/halo. A non-sRGB surface writes the colors
-        // verbatim (matching the original WebGL canvas) — and egui prefers it too.
+        // alpha-capable composite mode. The orb shader emits already-display-ready
+        // colors; an sRGB surface would apply a second linear→sRGB gamma curve,
+        // washing the orb into an over-bright blob and lifting the dim bloom/halo.
+        // A non-sRGB surface writes the colors linear-space (matching the shader's
+        // output) — and egui prefers it too.
         let caps = surface.get_capabilities(&adapter);
         let format = caps
             .formats
@@ -326,9 +326,9 @@ fn pick_alpha_mode(modes: &[wgpu::CompositeAlphaMode]) -> wgpu::CompositeAlphaMo
     Opaque
 }
 
-// --- chrome (wordmark + state dot + hint), ported from index.html / styles.css.
+// --- chrome (wordmark + state dot + hint).
 
-/// Per-state accent colour (the `--accent` CSS var that re-tints the dot/hint).
+/// Per-state accent colour that re-tints the dot/hint.
 fn accent(state: LoState) -> egui::Color32 {
     use egui::Color32;
     match state {
@@ -348,8 +348,8 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
 
     let acc = accent(state);
 
-    // The dot pulses faster while Lo is in an active turn (mirrors the CSS
-    // `dotPulse` duration overrides).
+    // The dot pulses faster while Lo is in an active turn; the pulse period
+    // varies by state.
     let period = match state {
         LoState::Listening | LoState::Speaking => 1.5,
         LoState::Thinking => 1.0,
@@ -391,8 +391,8 @@ fn draw_chrome(ctx: &egui::Context, state: LoState) {
             });
         });
 
-    // The hint only invites you while Lo waits (idle/boot), matching the CSS
-    // `body:not([data-state='idle']):not([data-state='boot']) .hint { opacity:0 }`.
+    // The hint only invites you while Lo waits (idle/boot); it is hidden in every
+    // active state.
     if matches!(state, LoState::Idle | LoState::Boot) {
         let ink_faint = Color32::from_rgb(0x6f, 0x61, 0x5f);
         egui::Area::new(egui::Id::new("lo-hint"))

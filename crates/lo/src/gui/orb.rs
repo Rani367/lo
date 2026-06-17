@@ -1,10 +1,10 @@
 //! The living core — a full-screen WGSL fragment shader rendered with wgpu.
 //!
-//! Ported from the WebGL2 build in `src/renderer/ui/core.ts`: a single organic
-//! body of warm light over a deep dawn field. The GPU shader source lives in
-//! [`lo_core::shaders::ORB_WGSL`]; this module owns the host-side render pipeline,
-//! the eased visual state ([`Vis`]), and the uniform buffer whose byte layout must
-//! mirror the shader's `Uniforms` struct EXACTLY (see [`Uniforms`]).
+//! A single organic body of warm light over a deep dawn field. The GPU shader
+//! source lives in [`lo_core::shaders::ORB_WGSL`]; this module owns the host-side
+//! render pipeline, the eased visual state ([`Vis`]), and the uniform buffer whose
+//! byte layout must mirror the shader's `Uniforms` struct EXACTLY (see
+//! [`Uniforms`]).
 
 use bytemuck::{Pod, Zeroable};
 use lo_core::types::LoState;
@@ -14,7 +14,7 @@ use wgpu::util::DeviceExt;
 pub type Rgb = [f32; 3];
 
 // ---------------------------------------------------------------------------
-// Warm "dawn" palette (linear 0..1) — ported 1:1 from `core.ts`.
+// Warm "dawn" palette (linear 0..1).
 // ---------------------------------------------------------------------------
 
 /// Hot near-white centre.
@@ -34,13 +34,13 @@ pub const RED_DESAT: Rgb = [0.96, 0.45, 0.4];
 /// Deep dawn background.
 pub const BG: Rgb = [0.039, 0.027, 0.031];
 
-/// Number of folded spectrum bands fed into the uniform (kept for host parity;
-/// the shader does not currently read them).
+/// Number of folded spectrum bands fed into the uniform (reserved; the shader
+/// does not currently read them).
 pub const SPEC_BANDS: usize = 16;
 
-/// Broad ambient lift on the dark field — see the long comment in `core.ts`. It
-/// keeps the upper field a dim glow so high-contrast panels don't crush it into a
-/// hard black rectangle. `0.0` is the original look.
+/// Broad ambient lift on the dark field. It keeps the upper field a dim glow so
+/// high-contrast panels don't crush it into a hard black rectangle. `0.0` is the
+/// unlifted look (a flat dark field).
 pub const FIELD_LIFT: f32 = 0.06;
 
 /// Clamp the device-pixel-ratio so 4K/Retina panels don't over-render the field.
@@ -72,7 +72,7 @@ pub struct Vis {
 }
 
 impl Vis {
-    /// The preset for a given UI state (the 6 `STATES` entries from `core.ts`).
+    /// The preset for a given UI state (one entry per state).
     pub fn preset(state: LoState) -> Vis {
         match state {
             LoState::Boot => Vis {
@@ -138,7 +138,8 @@ impl Vis {
         }
     }
 
-    /// Ease `self` toward `target` by factor `k` (`k = (dt*4).min(1.0)` upstream).
+    /// Ease `self` toward `target` by factor `k` (the caller uses
+    /// `k = (dt*4).min(1.0)`).
     pub fn ease_toward(&mut self, target: &Vis, k: f32) {
         self.intensity += (target.intensity - self.intensity) * k;
         self.turb += (target.turb - self.turb) * k;
@@ -350,7 +351,7 @@ impl Orb {
     ) {
         // Boot reveal eases up over ~1.1s; the shader sees the cubic ease-out.
         self.boot_t = (self.boot_t + dt / BOOT_SECONDS).min(1.0);
-        // Smooth the audio level (k = min(1, dt*9), per core.ts).
+        // Smooth the audio level (k = min(1, dt*9)).
         self.level += (level - self.level) * (dt * 9.0).min(1.0);
 
         let k = (dt * 4.0).min(1.0);
@@ -379,7 +380,7 @@ impl Orb {
     }
 
     /// Fold the incoming 16-band spectrum into the smoothed `spec` (gain-weighted),
-    /// mirroring `core.ts`'s `updateSpectrum` smoothing toward the supplied bands.
+    /// smoothing each band toward the supplied value so the field reacts smoothly.
     fn update_spectrum(&mut self, spectrum: &[f32; SPEC_BANDS], gain: f32) {
         for (sp, &band) in self.spec.iter_mut().zip(spectrum.iter()) {
             let v = band * gain;

@@ -1,4 +1,4 @@
-//! Single source of truth for the option lists (ported from `src/shared/options.ts`).
+//! Single source of truth for the selectable option lists (voices, models, backends).
 
 /// Kokoro voices (warm American first — Lo's default voice).
 pub const VOICES: &[&str] = &[

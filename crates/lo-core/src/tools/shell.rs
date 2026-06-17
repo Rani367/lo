@@ -1,6 +1,6 @@
-//! `run_command` validation (ported from `src/main/tools/shell.ts`). The single
-//! most powerful capability, so it is Danger-tier. The always-on safety baseline,
-//! regardless of the gate, is reproduced here:
+//! `run_command` validation. The single most powerful capability, so it is
+//! Danger-tier. The always-on safety baseline, regardless of the gate, is
+//! enforced here:
 //!   - argv array, never a shell string → no shell interpolation.
 //!   - cwd validated to an allowed root (reuses the filesystem sandbox).
 //!   - bounded timeout + output cap (constants; enforced by the bin's executor).
@@ -29,8 +29,8 @@ pub struct RunPlan {
 }
 
 /// Validate a `run_command` request: non-empty executable, argv list, and a cwd
-/// confined to an allowed root (defaulting to the first root). Mirrors the
-/// resolution `runCommand` does before `execFile`.
+/// confined to an allowed root (defaulting to the first root). This is the
+/// resolution done before the command is spawned.
 pub fn prepare(
     settings: &LoSettings,
     command: &str,

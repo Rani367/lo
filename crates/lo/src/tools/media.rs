@@ -1,7 +1,6 @@
 //! Media control — play/pause/next/previous/stop the active media player.
-//! Ported from `src/main/tools/media.ts`. Per-OS mechanism: AppleScript to the
-//! running player on macOS, `playerctl` on Linux, and the Windows media
-//! virtual-keys via `keybd_event`.
+//! Per-OS mechanism: AppleScript to the running player on macOS, `playerctl` on
+//! Linux, and the Windows media virtual-keys via `keybd_event`.
 
 use tokio::process::Command;
 

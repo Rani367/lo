@@ -1,8 +1,14 @@
 //! The "listen" std thread: owns the !Send on-device hearing models (whisper
 //! ASR, Silero VAD), continuously drains the 16 kHz capture ring, and turns
 //! speech into a transcript that it hands to the UI as `AppEvent::Transcribed`.
-//! Ports the activation logic of `src/renderer/audio/capture-vad.ts` (push-to-talk
-//! buffering; VAD auto-segmentation).
+//!
+//! Two activation paths coexist:
+//!   - **Hands-free (`Vad`, the default):** a Silero segmenter watches the mic and
+//!     fires a transcript when you stop talking. Lo's own TTS is suppressed so it
+//!     never hears itself.
+//!   - **Push-to-talk:** holding Space buffers exactly what's said and transcribes
+//!     it on release. PTT takes precedence in every mode, so it's always available
+//!     as an override on top of hands-free.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -15,11 +21,11 @@ use winit::event_loop::EventLoopProxy;
 use crate::app::state::MIN_PTT_SAMPLES;
 use crate::audio::AudioHandle;
 use crate::events::AppEvent;
-use crate::ml::{self, VadEvent, WakeWord};
+use crate::ml::{self, VadEvent};
 
 const SAMPLE_RATE: usize = 16_000;
-/// Reject clips longer than 30 s before they reach the model (parity with the
-/// `MAX_SECONDS` cap in servers.ts).
+/// Reject clips longer than 30 s before they reach the model, so a stuck key or a
+/// noisy room can't hand whisper an unbounded buffer.
 const MAX_CLIP_SAMPLES: usize = SAMPLE_RATE * 30;
 /// Silero VAD operates on 512-sample (32 ms) frames at 16 kHz.
 const VAD_FRAME: usize = 512;
@@ -55,42 +61,20 @@ fn run(ctx: ListenCtx) {
     let mut asr: Option<ml::Asr> = None;
     let mut asr_failed = false;
 
+    // Hands-free mode runs an always-on Silero segmenter; pure push-to-talk does
+    // not (audio is only transcribed while Space is held). Best-effort: if the VAD
+    // model can't load, hands-free goes quiet but push-to-talk still works.
     let mut vad: Option<ml::Vad> = if mode == ActivationMode::Vad {
         match ml::new_vad(None, vad_tuning(&settings)) {
             Ok(v) => Some(v),
             Err(e) => {
-                tracing::warn!("VAD unavailable, falling back to idle: {e:#}");
+                tracing::warn!("VAD unavailable; hands-free off (push-to-talk still works): {e:#}");
                 None
             }
         }
     } else {
         None
     };
-
-    // Wake word ("Hey Jarvis", openWakeWord). In wake mode we also keep a VAD to
-    // segment the utterance that follows a detection. Both are best-effort: if the
-    // model can't load, wake mode simply idles (use PTT meanwhile).
-    let mut wake: Option<Box<dyn WakeWord>> = if mode == ActivationMode::Wake {
-        match ml::load_wakeword(settings.wake_threshold, None) {
-            Ok(w) => Some(w),
-            Err(e) => {
-                tracing::warn!("wake word unavailable, idling: {e:#}");
-                None
-            }
-        }
-    } else {
-        None
-    };
-    let mut wake_vad: Option<ml::Vad> = if mode == ActivationMode::Wake {
-        ml::new_vad(None, vad_tuning(&settings)).ok()
-    } else {
-        None
-    };
-    // True once the wake word has fired and we're capturing the user's utterance.
-    let mut armed = false;
-    let mut armed_frames: usize = 0;
-    // Auto-disarm if no utterance arrives within ~8 s of the wake word.
-    const ARM_TIMEOUT_FRAMES: usize = 8000 / 32;
 
     let mut ptt_clip: Vec<f32> = Vec::new();
     let mut ptt_was = false;
@@ -104,107 +88,78 @@ fn run(ctx: ListenCtx) {
         scratch.clear();
         audio.drain_capture_16k(&mut scratch);
         if scratch.is_empty() {
+            // Idle briefly so we don't busy-spin; well under one VAD frame (32 ms).
             std::thread::sleep(Duration::from_millis(8));
         }
 
-        match mode {
-            ActivationMode::Wake => {
+        // Push-to-talk takes precedence in every mode: while Space is held we buffer
+        // exactly what's said and transcribe it on release. The app already bumped
+        // the barge-in epoch and stopped playback on the key press.
+        let ptt = ptt_active.load(Ordering::SeqCst);
+        if ptt {
+            if !ptt_was {
+                // Rising edge: suppress the hands-free segmenter for this hold and
+                // start the clip fresh.
+                if let Some(v) = vad.as_mut() {
+                    v.reset();
+                }
+                frame_buf.clear();
+                ptt_clip.clear();
+            }
+            ptt_clip.extend_from_slice(&scratch);
+            if ptt_clip.len() > MAX_CLIP_SAMPLES {
+                let cut = ptt_clip.len() - MAX_CLIP_SAMPLES;
+                ptt_clip.drain(0..cut);
+            }
+            ptt_was = true;
+            continue;
+        } else if ptt_was {
+            // Falling edge: finalize the held clip and transcribe it.
+            let clip = std::mem::take(&mut ptt_clip);
+            let text = if clip.len() >= MIN_PTT_SAMPLES {
+                transcribe(&mut asr, &mut asr_failed, &model, &clip)
+            } else {
+                String::new()
+            };
+            let _ = proxy.send_event(AppEvent::Transcribed { text });
+            ptt_was = false;
+            // Resume hands-free with a clean segmenter.
+            if let Some(v) = vad.as_mut() {
+                v.reset();
+            }
+            frame_buf.clear();
+            continue;
+        }
+
+        // Hands-free segmentation (only when not in a push-to-talk hold).
+        if mode == ActivationMode::Vad {
+            if audio.is_playing() {
+                // Don't let Lo's own TTS trip the VAD: discard captured audio while
+                // speaking and keep the segmenter reset for the next turn.
+                frame_buf.clear();
+                if let Some(v) = vad.as_mut() {
+                    v.reset();
+                }
+            } else if let Some(v) = vad.as_mut() {
                 frame_buf.extend_from_slice(&scratch);
-                if !armed {
-                    // Listen for "Hey Jarvis" in 1280-sample (80 ms) chunks.
-                    if let Some(w) = wake.as_mut() {
-                        let n = w.frame_length().max(1);
-                        while frame_buf.len() >= n {
-                            let frame: Vec<i16> = frame_buf
-                                .drain(0..n)
-                                .map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
-                                .collect();
-                            if w.process_i16(&frame) {
-                                armed = true;
-                                armed_frames = 0;
-                                if let Some(v) = wake_vad.as_mut() {
-                                    v.reset();
-                                }
-                                frame_buf.clear(); // capture the utterance fresh
-                                break;
-                            }
-                        }
-                    } else {
-                        frame_buf.clear(); // no detector — don't grow the buffer
-                    }
-                } else if audio.is_playing() {
-                    // Don't capture Lo's own reply as the user's utterance.
-                    frame_buf.clear();
-                } else if let Some(v) = wake_vad.as_mut() {
-                    // After the wake word: segment the utterance with the VAD.
-                    while frame_buf.len() >= VAD_FRAME {
-                        let frame: Vec<f32> = frame_buf.drain(0..VAD_FRAME).collect();
-                        armed_frames += 1;
-                        for ev in v.push_frame(&frame) {
-                            if let VadEvent::SpeechEnd(clip) = ev {
-                                armed = false;
-                                if !clip.is_empty() {
-                                    let text = transcribe(&mut asr, &mut asr_failed, &model, &clip);
-                                    if !text.trim().is_empty() {
-                                        let _ =
-                                            proxy.send_event(AppEvent::Transcribed { id: 0, text });
-                                    }
-                                }
+                while frame_buf.len() >= VAD_FRAME {
+                    let frame: Vec<f32> = frame_buf.drain(0..VAD_FRAME).collect();
+                    for ev in v.push_frame(&frame) {
+                        if let VadEvent::SpeechEnd(clip) = ev {
+                            let text = transcribe(&mut asr, &mut asr_failed, &model, &clip);
+                            if !text.trim().is_empty() {
+                                let _ = proxy.send_event(AppEvent::Transcribed { text });
                             }
                         }
                     }
-                    if armed && armed_frames > ARM_TIMEOUT_FRAMES {
-                        armed = false; // user said nothing — go back to waiting
-                    }
                 }
-            }
-            ActivationMode::Ptt => {
-                let active = ptt_active.load(Ordering::SeqCst);
-                if active {
-                    ptt_clip.extend_from_slice(&scratch);
-                    if ptt_clip.len() > MAX_CLIP_SAMPLES {
-                        let cut = ptt_clip.len() - MAX_CLIP_SAMPLES;
-                        ptt_clip.drain(0..cut);
-                    }
-                } else if ptt_was {
-                    // Falling edge: finalize the clip.
-                    let clip = std::mem::take(&mut ptt_clip);
-                    let text = if clip.len() >= MIN_PTT_SAMPLES {
-                        transcribe(&mut asr, &mut asr_failed, &model, &clip)
-                    } else {
-                        String::new()
-                    };
-                    let _ = proxy.send_event(AppEvent::Transcribed { id: 0, text });
-                }
-                ptt_was = active;
-            }
-            ActivationMode::Vad => {
-                if audio.is_playing() {
-                    // Don't let Lo's own TTS trip the VAD: discard captured audio
-                    // while speaking and keep the segmenter reset for the next turn.
-                    frame_buf.clear();
-                    if let Some(v) = vad.as_mut() {
-                        v.reset();
-                    }
-                } else if let Some(v) = vad.as_mut() {
-                    frame_buf.extend_from_slice(&scratch);
-                    while frame_buf.len() >= VAD_FRAME {
-                        let frame: Vec<f32> = frame_buf.drain(0..VAD_FRAME).collect();
-                        for ev in v.push_frame(&frame) {
-                            if let VadEvent::SpeechEnd(clip) = ev {
-                                let text = transcribe(&mut asr, &mut asr_failed, &model, &clip);
-                                if !text.trim().is_empty() {
-                                    let _ = proxy.send_event(AppEvent::Transcribed { id: 0, text });
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // No VAD engine — drop frames so the ring doesn't overflow.
-                    frame_buf.clear();
-                }
+            } else {
+                // No VAD engine — drop frames so the ring doesn't overflow.
+                frame_buf.clear();
             }
         }
+        // Pure push-to-talk mode just idles here between holds; `scratch` was
+        // already drained above, so the capture ring won't overflow.
     }
 }
 

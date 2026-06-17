@@ -1,9 +1,8 @@
 //! Microphone capture plumbing.
 //!
-//! Ports the *mic-tap* side of the original `capture-vad.ts`: per-block RMS is
-//! smoothed into a 0..1 "listening" level with the exact EMA the renderer used
-//! (`level = level*0.6 + rms*0.4`, exposed as `min(1, level*4)`), and 16 kHz
-//! mono f32 samples are made available for the ASR/VAD frontend.
+//! The mic tap smooths per-block RMS into a 0..1 "listening" level via an EMA
+//! (`level = level*0.6 + rms*0.4`, exposed as `min(1, level*4)`), and makes
+//! 16 kHz mono f32 samples available for the ASR/VAD frontend.
 //!
 //! RT-safety: the cpal input callback only pushes raw device-rate mono f32 into
 //! [`CaptureRings::raw_prod`] and updates the level atomic. The resample from
@@ -17,10 +16,10 @@ use rtrb::{Consumer, Producer, RingBuffer};
 
 use crate::audio::resample::MonoResampler;
 
-/// Target capture rate for the ASR/VAD frontend (matches the renderer).
+/// Target capture rate for the ASR/VAD frontend.
 pub const CAPTURE_RATE: u32 = 16_000;
 
-/// Smoothed microphone amplitude, mirroring `capture-vad.ts`.
+/// Smoothed microphone amplitude.
 ///
 /// `push_block` is called from the (RT) input callback with one block of mono
 /// f32 samples; it computes RMS and folds it into the EMA. The level is stored
@@ -50,17 +49,12 @@ impl InputLevel {
         }
         let rms = (sum / block.len() as f64).sqrt() as f32;
         let prev = f32::from_bits(self.bits.load(Ordering::Relaxed));
-        // Exact EMA from capture-vad.ts: level = level*0.6 + rms*0.4.
+        // EMA: level = level*0.6 + rms*0.4.
         let next = prev * 0.6 + rms * 0.4;
         self.bits.store(next.to_bits(), Ordering::Relaxed);
     }
 
-    /// Reset to silence (e.g. when the mic is paused).
-    pub fn reset(&self) {
-        self.bits.store(0.0f32.to_bits(), Ordering::Relaxed);
-    }
-
-    /// 0..1 smoothed amplitude for the orb — `min(1, level*4)` per the renderer.
+    /// 0..1 smoothed amplitude for the orb — `min(1, level*4)`.
     pub fn level(&self) -> f32 {
         let l = f32::from_bits(self.bits.load(Ordering::Relaxed));
         (l * 4.0).min(1.0)

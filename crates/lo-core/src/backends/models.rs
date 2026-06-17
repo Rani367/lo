@@ -1,7 +1,7 @@
-//! Model catalog + hardware-tiered recommendation (ported from
-//! `src/main/backends/models.ts`). Each tier pairs an MLX weight (Apple-Silicon
-//! fast path) with a GGUF reference (the bundled llama.cpp path), so one logical
-//! "model" resolves to the right artifact for whichever backend is active.
+//! Model catalog + hardware-tiered recommendation. Each tier pairs an MLX weight
+//! (Apple-Silicon fast path), a GGUF reference (the bundled llama.cpp path), and an
+//! Ollama tag, so one logical "model" resolves to the right artifact for whichever
+//! backend is active. The recommended tier scales with system RAM.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ModelTier {
@@ -55,7 +55,9 @@ pub const MODEL_TIERS: &[ModelTier] = &[
 pub fn total_ram_gb(detected_bytes: u64) -> f64 {
     if let Ok(v) = std::env::var("LO_RAM_GB") {
         if let Ok(n) = v.trim().parse::<f64>() {
-            if n > 0.0 {
+            // Reject non-finite values (e.g. `Infinity`) so they can't force the
+            // largest tier.
+            if n > 0.0 && n.is_finite() {
                 return n;
             }
         }
@@ -95,12 +97,17 @@ pub fn gguf_ref_for_model(model_id: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Map a model id to its local GGUF filename (the llama backend's `ggufFileFor`).
+/// Map a model id to the local GGUF filename it downloads to. A HuggingFace GGUF
+/// reference uses `owner/repo:file.gguf`, so the filename is the part after the
+/// last colon (a bare `:` is illegal in filenames on Windows); a plain MLX id maps
+/// to its last path segment with a `.gguf` suffix.
 pub fn gguf_file_for(model_id: &str) -> String {
     let leaf = model_id
-        .split('/')
-        .rfind(|s| !s.is_empty())
+        .rsplit('/')
+        .find(|s| !s.is_empty())
         .unwrap_or("model");
+    // `repo:file.gguf` → keep only `file.gguf`.
+    let leaf = leaf.rsplit(':').next().unwrap_or(leaf);
     if leaf.ends_with(".gguf") {
         leaf.to_string()
     } else {
@@ -147,5 +154,17 @@ mod tests {
             "Qwen3-8B-4bit.gguf"
         );
         assert_eq!(gguf_file_for("owner/repo/weights.gguf"), "weights.gguf");
+        // Catalog refs use the HuggingFace `repo:file.gguf` syntax; the local
+        // filename must be just the file part (a `:` is illegal on Windows).
+        assert_eq!(
+            gguf_file_for("unsloth/Qwen3-8B-GGUF:Qwen3-8B-UD-Q4_K_XL.gguf"),
+            "Qwen3-8B-UD-Q4_K_XL.gguf"
+        );
+        // Every shipped catalog tier resolves to a colon-free filename.
+        for tier in MODEL_TIERS {
+            let name = gguf_file_for(tier.gguf);
+            assert!(!name.contains(':'), "{} has a colon: {name}", tier.label);
+            assert!(name.ends_with(".gguf"), "{} not .gguf: {name}", tier.label);
+        }
     }
 }

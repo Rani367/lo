@@ -7,7 +7,7 @@
 //! std thread (spawned by the worker). cpal audio streams (also !Send) live on
 //! the main thread inside the `App`.
 //!
-//! Bridges (replacing Electron IPC, see `events`):
+//! Inter-thread messaging (see `events`):
 //!   - UI/listen → worker: `mpsc::UnboundedSender<UiCommand>`
 //!   - worker/ML → UI: `EventLoopProxy<AppEvent>` → `ApplicationHandler::user_event`
 //!   - barge-in epoch: a `watch::channel<u64>` the UI bumps and the worker/TTS
@@ -18,11 +18,10 @@
     all(target_os = "windows", not(debug_assertions)),
     windows_subsystem = "windows"
 )]
-// The binary carries APIs that are wired up in later phases (wake-word
-// activation, settings hot-reload, engine prewarm, the status-HUD dot). Allow
-// dead_code crate-wide so CI's `-D warnings` stays green without prematurely
-// deleting that scaffolding; `lo-core` (the tested core) stays strictly clean.
-#![allow(dead_code)]
+// On-device ML types are feature-gated; with the `ml` feature off the stub engines
+// leave that plumbing unused. Allow dead_code only in that reduced build, so the
+// full (shipping) build still enforces the lint.
+#![cfg_attr(not(feature = "ml"), allow(dead_code))]
 
 mod app;
 mod audio;
@@ -131,7 +130,7 @@ fn main() -> anyhow::Result<()> {
             .expect("failed to spawn worker thread")
     };
 
-    // Listen thread (std): owns ASR/VAD/wake, drains capture, emits transcripts.
+    // Listen thread (std): owns ASR + VAD, drains capture, emits transcripts.
     let listen_handle = listen::spawn(listen::ListenCtx {
         audio: audio_handle.clone(),
         proxy: proxy.clone(),
@@ -146,7 +145,6 @@ fn main() -> anyhow::Result<()> {
         ui_tx,
         epoch_tx,
         ptt_active,
-        settings,
         // `--say "<text>"` injects a synthetic transcript once the window is up,
         // driving a full turn (brain → captions → TTS) for visual/E2E testing.
         pending_say: arg_value("--say"),
@@ -220,11 +218,10 @@ fn smoke(settings: &LoSettings) -> anyhow::Result<()> {
         Err(e) => println!("  audio: unavailable ({e})"),
     }
     println!(
-        "  ml: asr-whisper={} tts-kokoro={} vad-silero={} wake-openwakeword={}",
+        "  ml: asr-whisper={} tts-kokoro={} vad-silero={}",
         cfg!(feature = "asr-whisper"),
         cfg!(feature = "tts-kokoro"),
         cfg!(feature = "vad-silero"),
-        cfg!(feature = "wake-openwakeword"),
     );
     println!("OK");
     Ok(())

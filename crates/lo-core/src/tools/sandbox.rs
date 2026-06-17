@@ -1,9 +1,8 @@
-//! Filesystem sandbox (ported from `resolveInRoots`/`allowedRoots` in
-//! `src/main/tools/files.ts`). Every path the model supplies is expanded,
-//! absolutized, lexically normalized, then realpath'd (longest existing prefix)
-//! and verified to live inside an allowed root before any I/O happens — so a
-//! mistaken or adversarial path (incl. one tunnelling through a symlink) can't
-//! escape the sandbox.
+//! Filesystem sandbox. Every path the model supplies is expanded, absolutized,
+//! lexically normalized, then realpath'd (longest existing prefix) and verified to
+//! live inside an allowed root before any I/O happens — so a mistaken or
+//! adversarial path (incl. one tunnelling through a symlink) can't escape the
+//! sandbox.
 
 use crate::config::{paths, LoSettings};
 use std::path::{Component, Path, PathBuf};
@@ -44,7 +43,7 @@ pub fn allowed_roots(settings: &LoSettings) -> Vec<PathBuf> {
 }
 
 /// Resolve a user-supplied path to an absolute, real path inside an allowed root,
-/// or error. Mirrors `resolveInRoots`.
+/// or error.
 pub fn resolve_in_roots(settings: &LoSettings, input: &str) -> Result<PathBuf, SandboxError> {
     let p = input.trim();
     if p.is_empty() {
@@ -71,8 +70,7 @@ pub fn resolve_in_roots(settings: &LoSettings, input: &str) -> Result<PathBuf, S
 
 /// Absolutize (join the current dir if relative) and lexically normalize `.`/`..`
 /// so a relative or `..`-laden path can't lexically escape before the realpath
-/// step. (Node's `path.resolve` collapses `..`; std's `absolute` does not, so we
-/// normalize ourselves.)
+/// step. (std's `absolute` does not collapse `..`, so we normalize ourselves.)
 fn absolutize(p: &Path) -> PathBuf {
     let abs = if p.is_absolute() {
         p.to_path_buf()

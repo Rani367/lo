@@ -35,9 +35,13 @@ jobs:
       - run: cargo clippy --workspace --all-targets --no-default-features -- -D warnings
       - run: cargo test --workspace --no-default-features
       - run: cargo build --workspace --no-default-features
+      # lo-core has no feature gates, so its contract is identical with default
+      # features; run it explicitly so a future optional feature can't break it
+      # silently.
+      - run: cargo test -p lo-core
 
   # Verify the heavy on-device ML stack (whisper.cpp via CMake + ort + Kokoro +
-  # openWakeWord) actually builds on every OS, so a platform-specific toolchain
+  # Silero VAD) actually builds on every OS, so a platform-specific toolchain
   # break is caught before a release. macOS additionally compiles the Metal +
   # CoreML backends (enabled by default there) and runs the ML-on tests.
   ml-build:
@@ -57,7 +61,7 @@ jobs:
       - name: Windows build deps (NASM for aws-lc-rs)
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
-      - run: cargo build -p lo # default features = ml (asr + tts + vad + wake)
+      - run: cargo build -p lo # default features = ml (asr + tts + vad)
       # ML-on unit tests on the reference target (offline-safe — no model loads).
       - if: runner.os == 'macOS'
         run: cargo test -p lo

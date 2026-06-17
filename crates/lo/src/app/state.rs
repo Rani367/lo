@@ -1,16 +1,16 @@
-//! The conversation/turn state machine, ported from `src/renderer/renderer.ts`.
+//! The conversation/turn state machine.
 //!
 //! Lives on the winit/UI thread. The epoch counter is the barge-in mechanism: it
 //! is bumped on every new listen and every interrupt, and every worker-driven
 //! tail is gated on it (an `AppEvent` whose `turn_id` is no longer the active one
-//! is dropped), reproducing the renderer's `epoch`/`activeTurnId` discipline.
+//! is dropped), so a superseded turn can never write into the live conversation.
 
 use lo_core::types::{ChatMessage, ChatRole, LoState};
 
 /// Shortest accepted push-to-talk clip (0.2 s @ 16 kHz) — anything briefer is a
-/// misfire (`MIN_PTT_SAMPLES` in renderer.ts).
+/// misfire.
 pub const MIN_PTT_SAMPLES: usize = 3_200;
-/// Rolling history cap fed to the brain (`MAX_HISTORY` in renderer.ts).
+/// Rolling history cap fed to the brain.
 pub const MAX_HISTORY: usize = 12;
 /// How long the captions linger after a turn before fading (`IDLE_FADE_MS`).
 pub const IDLE_FADE_SECS: f32 = 4.2;
@@ -96,7 +96,7 @@ impl Session {
         self.state = LoState::Thinking;
 
         // Drop a dangling trailing user message (a prior turn that never got a
-        // reply) before pushing this one, matching renderer.ts.
+        // reply) before pushing this one.
         if matches!(self.history.last(), Some(m) if m.role == ChatRole::User) {
             self.history.pop();
         }

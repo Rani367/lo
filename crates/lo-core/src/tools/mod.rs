@@ -1,4 +1,5 @@
-//! Tool registry + safety gate (ported from `src/main/tools/registry.ts`).
+//! Tool registry + safety gate: every advertised tool carries a safety tier, and
+//! the gate is enforced here before a tool runs.
 //!
 //! Each tool carries a safety `tier`:
 //!   - `Safe`    — read-only or trivially reversible; runs immediately.
@@ -88,8 +89,7 @@ pub fn tool_names() -> String {
         .join(", ")
 }
 
-/// The tier for a tool name (unknown names are treated as `Safe`, matching the TS
-/// `?? 'safe'`).
+/// The tier for a tool name (unknown names are treated as `Safe`).
 pub fn tier_for(name: &str) -> Tier {
     REGISTRY
         .iter()
@@ -107,7 +107,7 @@ pub fn gate(name: &str, power_user_mode: bool) -> GateDecision {
     }
 }
 
-// --- schema builders mirroring the TS `str`/`obj` helpers ---
+// --- schema builders: small helpers for the common string / object param shapes ---
 
 fn str_param(desc: &str) -> serde_json::Value {
     serde_json::json!({ "type": "string", "description": desc })
@@ -197,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn tiers_match_the_electron_app() {
+    fn safety_tiers_are_correct() {
         assert_eq!(tier_for("web_search"), Tier::Safe);
         assert_eq!(tier_for("read_file"), Tier::Safe);
         assert_eq!(tier_for("quit_app"), Tier::Confirm);
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(tier_for("copy_file"), Tier::Danger);
         assert_eq!(tier_for("delete_path"), Tier::Danger);
         assert_eq!(tier_for("run_command"), Tier::Danger);
-        // Unknown tools default to Safe (matching `?? 'safe'`).
+        // Unknown tools default to Safe.
         assert_eq!(tier_for("nonexistent_tool"), Tier::Safe);
     }
 

@@ -1,12 +1,11 @@
-//! Output spectrum analyser — the native replacement for the Web Audio
-//! `AnalyserNode` (fftSize = 256, smoothingTimeConstant = 0.8) that drove the
-//! "speaking" orb in the original renderer.
+//! Output spectrum analyser that drives the "speaking" orb (fftSize = 256,
+//! smoothing = 0.8).
 //!
 //! A 256-point Hann-windowed FFT is run over the most recent output samples
 //! (teed off the playback stream), then the 128 magnitude bins are folded into
-//! 16 logarithmically-spaced bands with per-band EMA smoothing (0.8), matching
-//! the browser AnalyserNode's smoothing behaviour. All DSP runs on the caller's
-//! thread inside [`SpectrumAnalyzer::compute`] — never in an audio callback.
+//! 16 logarithmically-spaced bands with per-band EMA smoothing (0.8). All DSP
+//! runs on the caller's thread inside [`SpectrumAnalyzer::compute`] — never in
+//! an audio callback.
 
 use std::f32::consts::PI;
 
@@ -14,11 +13,11 @@ use rustfft::num_complex::Complex;
 use rustfft::{Fft, FftPlanner};
 use std::sync::Arc;
 
-/// FFT size — mirrors the Web Audio `AnalyserNode.fftSize = 256`.
+/// FFT size: 256-point transform.
 pub const FFT_SIZE: usize = 256;
 /// Number of output bands the orb shader consumes.
 pub const BANDS: usize = 16;
-/// EMA smoothing constant — mirrors `smoothingTimeConstant = 0.8`.
+/// EMA smoothing constant (weights the previous value).
 const SMOOTHING: f32 = 0.8;
 
 /// Computes a smoothed 16-band log spectrum from a rolling window of output PCM.
@@ -92,8 +91,7 @@ impl SpectrumAnalyzer {
         // Only the first FFT_SIZE/2 bins carry unique real-input information.
         let half = FFT_SIZE / 2;
         // Normalise magnitudes by the window's coherent gain (~N/2 for Hann)
-        // and map into a 0..1 range comparable to the byte spectrum the orb
-        // shader originally consumed.
+        // and map into the 0..1 range the orb shader consumes.
         let norm = 1.0 / (half as f32);
         for b in 0..BANDS {
             // Logarithmic band edges across [1, half).
@@ -112,8 +110,8 @@ impl SpectrumAnalyzer {
                 0.0
             };
             let level = mag.min(1.0);
-            // EMA: new = old*0.8 + level*0.2 (browser AnalyserNode convention,
-            // where smoothingTimeConstant weights the *previous* value).
+            // EMA: new = old*0.8 + level*0.2 (the smoothing constant weights the
+            // *previous* value).
             self.bands[b] = self.bands[b] * SMOOTHING + level * (1.0 - SMOOTHING);
         }
     }

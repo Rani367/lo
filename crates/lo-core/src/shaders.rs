@@ -2,18 +2,16 @@
 //! next to the (tested) host-side uniform contract; the `lo` binary crate feeds
 //! [`ORB_WGSL`] to wgpu.
 
-/// The "living core" orb shader (vertex + fragment), ported from the WebGL2 GLSL
-/// in `src/renderer/ui/core.ts`. See the header comment in the `.wgsl` file for
-/// the uniform-buffer layout the host struct must mirror.
+/// The "living core" orb shader (vertex + fragment). See the header comment in
+/// the `.wgsl` file for the uniform-buffer layout the host struct must mirror.
 pub const ORB_WGSL: &str = include_str!("../assets/shaders/orb.wgsl");
 
 #[cfg(test)]
 mod tests {
     use super::ORB_WGSL;
 
-    /// Spike A acceptance: the ported WGSL must parse and pass naga validation
-    /// (catches the classic porting traps — uniform misalignment, type mismatch,
-    /// missing entry points — without needing a GPU).
+    /// The orb WGSL must parse and pass naga validation (catches uniform
+    /// misalignment, type mismatch, and missing entry points without a GPU).
     #[test]
     fn orb_wgsl_parses_and_validates() {
         let module = naga::front::wgsl::parse_str(ORB_WGSL).expect("orb.wgsl should parse as WGSL");

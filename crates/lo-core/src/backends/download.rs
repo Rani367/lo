@@ -1,7 +1,6 @@
-//! First-run asset *resolution* for the managed llama.cpp backend (ported from
-//! the pure logic of `src/main/backends/download.ts`): choosing the right
-//! `llama-server` release asset for this host, and turning a GGUF reference into
-//! a HuggingFace download URL.
+//! First-run asset *resolution* for the managed llama.cpp backend: choosing the
+//! right `llama-server` release asset for this host, and turning a GGUF reference
+//! into a HuggingFace download URL.
 //!
 //! The actual streaming download + zip extraction (which need `reqwest`/`zip`)
 //! lands in the `lo` binary crate; these pure functions are unit-tested here so
@@ -14,8 +13,8 @@ const ACCEL_TOKENS: &[&str] = &[
 /// The repo that ships prebuilt `llama-server` binaries.
 pub const LLAMA_REPO: &str = "ggml-org/llama.cpp";
 
-/// Host descriptor for asset matching. `platform`/`arch` use the Node spellings
-/// (`darwin`/`win32`/`linux`, `arm64`/`x64`) so the matrix mirrors the TS tests.
+/// Host descriptor for asset matching. `platform`/`arch` use the asset-name
+/// spellings (`darwin`/`win32`/`linux`, `arm64`/`x64`) the release names contain.
 #[derive(Debug, Clone, Copy)]
 pub struct HostTarget<'a> {
     pub platform: &'a str,
@@ -24,7 +23,7 @@ pub struct HostTarget<'a> {
 }
 
 impl HostTarget<'_> {
-    /// The current host, mapped from `std::env::consts` to the Node spellings.
+    /// The current host, mapped from `std::env::consts` to the asset-name spellings.
     pub fn current(variant: &str) -> HostTarget<'_> {
         let platform = match std::env::consts::OS {
             "macos" => "darwin",
@@ -44,10 +43,9 @@ impl HostTarget<'_> {
     }
 }
 
-/// Choose the best llama.cpp release asset for this host. Pure (mirrors
-/// `matchLlamaAsset`). `variant` selects the accelerator: `cpu` (default
-/// baseline) prefers the build with no accelerator token; `cuda`/`vulkan`/…
-/// prefer that token.
+/// Choose the best llama.cpp release asset for this host. `variant` selects the
+/// accelerator: `cpu` (default baseline) prefers the build with no accelerator
+/// token; `cuda`/`vulkan`/… prefer that token.
 pub fn match_llama_asset(names: &[String], target: HostTarget) -> Option<String> {
     let plat_toks: &[&str] = match target.platform {
         "darwin" => &["macos"],
@@ -123,7 +121,7 @@ fn shortest(list: &[&String]) -> Option<String> {
 
 /// Resolve a HuggingFace GGUF download URL from a GGUF reference. Accepts
 /// `owner/repo:path/to/file.gguf` or `owner/repo/file.gguf`. Returns `""` when
-/// the input isn't a GGUF reference (mirrors `resolveGgufUrl`).
+/// the input isn't a GGUF reference.
 pub fn resolve_gguf_url(reference: &str) -> String {
     let id = reference.trim();
     if !id.ends_with(".gguf") {

@@ -1,9 +1,9 @@
-//! Clipboard tools — read and write the system clipboard via `arboard`. Ported
-//! from `src/main/tools/clipboard.ts` (which used Electron's built-in clipboard).
+//! Clipboard tools — read and write the system clipboard via `arboard`, with a
+//! 64 KB cap on the text read back so a huge clipboard can't flood a turn.
 
 use arboard::Clipboard;
 
-/// 64 KB read cap, matching the TS `MAX_CLIP`.
+/// 64 KB read cap on returned clipboard text.
 const MAX_CLIP: usize = 64 * 1024;
 
 /// Read the clipboard's text. Empty/non-text clipboards return a friendly note;

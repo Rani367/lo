@@ -1,6 +1,6 @@
-//! OpenAI chat-message shapes for the agent loop (richer than the renderer-facing
+//! OpenAI chat-message shapes for the agent loop (richer than the UI-facing
 //! `ChatMessage`: the loop also produces assistant `tool_calls` and `tool`
-//! results). Ported from the `ReqMessage`/`ToolCall` interfaces in `brain.ts`.
+//! results).
 
 use serde::{Deserialize, Serialize};
 

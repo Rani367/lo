@@ -1,7 +1,6 @@
-//! Text helpers shared by the brain and the TTS pipeline (ported from
-//! `src/shared/text.ts`). Kokoro synthesizes one chunk at a time, so replies are
-//! split into short, sentence-aligned chunks that synthesize and play back as a
-//! pipeline for low-latency, gapless speech.
+//! Text helpers shared by the brain and the TTS pipeline. Kokoro synthesizes one
+//! chunk at a time, so replies are split into short, sentence-aligned chunks that
+//! synthesize and play back as a pipeline for low-latency, gapless speech.
 
 /// Keep chunks short for snappy, gapless playback.
 pub const TTS_MAX_CHARS: usize = 190;
@@ -49,7 +48,7 @@ fn find_directive_close(chars: &[char], open: usize) -> Option<usize> {
 /// Split a reply into ≤`max_chars` chunks, preferring sentence boundaries, then
 /// clause boundaries, then word boundaries, then a hard cut as a last resort.
 /// Bracketed directions are kept inline (they count toward the budget but steer
-/// voice, matching the TS behavior).
+/// the voice).
 pub fn chunk_for_tts(input: &str, max_chars: usize) -> Vec<String> {
     let text = collapse_ws(input);
     if text.is_empty() {
@@ -101,9 +100,10 @@ pub fn chunk_for_tts_default(input: &str) -> Vec<String> {
     chunk_for_tts(input, TTS_MAX_CHARS)
 }
 
-/// Mirror the JS regex `/[^.!?]+[.!?]+(?:["')\]]+)?|\S[^.!?]*$/g`: a run up to and
-/// including terminal punctuation (plus trailing closing quotes/brackets), or a
-/// final non-terminated fragment.
+/// Split text into sentences: each run up to and including terminal punctuation
+/// (`.`/`!`/`?`, plus any trailing closing quotes/brackets), then a final
+/// non-terminated fragment. A `.` between two digits is treated as a decimal
+/// point, not a sentence end.
 fn split_sentences(text: &str) -> Vec<String> {
     let chars: Vec<char> = text.chars().collect();
     let mut out: Vec<String> = Vec::new();
@@ -286,6 +286,11 @@ mod tests {
         assert_eq!(chunks.len(), 2, "{chunks:?}");
         assert!(chunks[0].contains("3.5 dollars"), "{chunks:?}");
         assert!(chunks[1].starts_with("Thanks"), "{chunks:?}");
+
+        // Scientific notation keeps its decimal point (the `.` sits between two
+        // digits), so the number is not split across chunks.
+        let sci = chunk_for_tts("The value is 1.5e-6 joules. Done.", 40);
+        assert!(sci[0].contains("1.5e-6"), "{sci:?}");
     }
 
     #[test]

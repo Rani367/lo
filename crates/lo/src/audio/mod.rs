@@ -1,6 +1,7 @@
 //! Native audio subsystem: low-latency microphone capture and gapless speech
-//! playback, ported from the Electron renderer's `capture-vad.ts` (mic tap) and
-//! `playback.ts`.
+//! playback. The mic tap downmixes to mono and resamples to 16 kHz for the
+//! ASR/VAD frontend, while the playback path resamples TTS PCM to the device
+//! rate and schedules it back-to-back.
 //!
 //! # Threading model
 //!
@@ -40,9 +41,6 @@ use crate::audio::capture::{pump_resample, CaptureRings, InputLevel, CAPTURE_RAT
 use crate::audio::playback::{fill_output, PlaybackRings, PlaybackState};
 use crate::audio::resample::{resample_mono, MonoResampler};
 use crate::audio::spectrum::{SpectrumAnalyzer, BANDS};
-
-/// Kokoro TTS emits 24 kHz mono f32 PCM.
-pub const KOKORO_RATE: u32 = 24_000;
 
 /// Ring capacity (samples) for the device-rate raw capture path (~0.5 s at
 /// 48 kHz). Generous so a slow worker pass never overruns the callback.
@@ -415,7 +413,7 @@ impl AudioHandle {
     }
 
     /// 0..1 smoothed microphone amplitude — `min(1, level*4)` over the EMA
-    /// `level = level*0.6 + rms*0.4`, matching `capture-vad.ts`.
+    /// `level = level*0.6 + rms*0.4`.
     pub fn input_level(&self) -> f32 {
         self.level.level()
     }
@@ -501,15 +499,14 @@ impl AudioHandle {
         self.play_state.flush.store(true, Ordering::Relaxed);
     }
 
-    /// True while speech is queued/playing (mirrors `playback.ts` isPlaying).
+    /// True while speech is queued/playing.
     pub fn is_playing(&self) -> bool {
         self.play_state.is_playing()
     }
 
-    /// 16-band smoothed log spectrum of the output (256-pt Hann FFT, EMA 0.8) —
-    /// the native replacement for the Web Audio `AnalyserNode` that drove the
-    /// speaking orb. Consumes whatever the playback callback has teed since the
-    /// last call.
+    /// 16-band smoothed log spectrum of the output (256-pt Hann FFT, EMA 0.8)
+    /// that drives the speaking orb. Consumes whatever the playback callback has
+    /// teed since the last call.
     pub fn output_spectrum(&self) -> [f32; BANDS] {
         // Drain the tee ring into a scratch buffer, then run the FFT.
         let mut fresh: Vec<f32> = Vec::new();
@@ -615,10 +612,10 @@ mod tests {
     use crate::audio::spectrum::SpectrumAnalyzer;
 
     #[test]
-    fn level_matches_capture_vad_ema() {
-        // Reproduce capture-vad.ts: level = level*0.6 + rms*0.4, exposed as
-        // min(1, level*4). Feed a constant-amplitude block; the level rises
-        // monotonically toward rms and saturates the exposed value at 1.
+    fn level_follows_rms_ema() {
+        // EMA: level = level*0.6 + rms*0.4, exposed as min(1, level*4). Feed a
+        // constant-amplitude block; the level rises monotonically toward rms and
+        // saturates the exposed value at 1.
         let lvl = InputLevel::new();
         let block = vec![0.5f32; 512];
         let rms = 0.5f32; // RMS of a constant 0.5 signal.

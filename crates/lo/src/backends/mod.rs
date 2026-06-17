@@ -2,11 +2,10 @@
 //! four interchangeable engines (MLX, bundled llama.cpp, a detected Ollama, or any
 //! custom endpoint), chosen by platform/hardware/settings.
 //!
-//! Ported from `src/main/backends/index.ts` + the per-backend modules (`mlx.ts`,
-//! `llama.ts`, `ollama.ts`, `custom.ts`). The *selection* and *endpoint* logic is
-//! reused from `lo_core::backends`; this module owns the process supervision
-//! (spawning MLX / llama-server via [`ManagedServer`]), the first-run downloads,
-//! and the health checks for the unmanaged engines.
+//! The *selection* and *endpoint* logic lives in `lo_core::backends`; this module
+//! owns the process supervision (spawning MLX / llama-server via
+//! [`ManagedServer`]), the first-run downloads, and the health checks for the
+//! unmanaged engines.
 //!
 //! The [`brain`](crate::brain) transport talks only to the [`BackendEndpoint`]
 //! this module resolves, so swapping engines never touches the streaming loop.
@@ -105,27 +104,6 @@ impl Engine {
         }
     }
 
-    /// Restart the active backend. Managed servers are killed + respawned; the
-    /// unmanaged ones simply re-health-check.
-    pub async fn restart(&self, settings: &LoSettings) -> anyhow::Result<()> {
-        let kind = resolve_backend_kind(settings);
-        match kind {
-            BackendKind::Mlx | BackendKind::Llama => {
-                let server = self.managed_for(kind, settings);
-                server.restart().await;
-                if server.state() == ServerState::Ready {
-                    Ok(())
-                } else {
-                    Err(anyhow::anyhow!(server
-                        .last_error()
-                        .unwrap_or_else(|| "engine failed to restart".into())))
-                }
-            }
-            BackendKind::Ollama => self.ensure_ollama(settings).await,
-            BackendKind::Custom => self.ensure_custom(settings).await,
-        }
-    }
-
     /// Stop the active managed server (no-op for the unmanaged backends — they're
     /// not ours to stop).
     pub fn stop(&self) {
@@ -134,8 +112,8 @@ impl Engine {
         }
     }
 
-    /// A non-blocking health snapshot for the HUD (mirrors `getEngineStatus`,
-    /// folding only the brain — local ASR health lives in the worker).
+    /// A non-blocking health snapshot for the HUD, folding only the brain — local
+    /// ASR health lives in the worker.
     pub fn status(&self, settings: &LoSettings) -> LocalStatus {
         let endpoint = resolve_endpoint(settings);
         let model = endpoint.model_id.clone();
@@ -169,18 +147,11 @@ impl Engine {
         }
     }
 
-    /// Fire a best-effort 1-token completion to warm prompt-cache / JIT (mirrors
-    /// `warmCompletion`). Never fails the caller.
-    pub async fn warm(&self, settings: &LoSettings) {
-        let endpoint = resolve_endpoint(settings);
-        let _ = warm_completion(&endpoint).await;
-    }
-
     /* ---------------- managed (MLX / llama) ---------------- */
 
     /// Get (constructing/replacing as needed) the [`ManagedServer`] for the given
-    /// kind. A kind change stops the prior server first, mirroring the TS cache
-    /// invalidation in `getLlmBackend`.
+    /// kind. A kind change stops the prior server first, so a settings flip never
+    /// leaves two engines contending for the port.
     fn managed_for(&self, kind: BackendKind, settings: &LoSettings) -> ManagedServer {
         let mut guard = self.active.lock().expect("active poisoned");
         if let Some(active) = guard.as_ref() {
@@ -305,7 +276,7 @@ impl Engine {
 /* ---------------- server specs ---------------- */
 
 /// `python -m mlx_lm server --model <id> --host 127.0.0.1 --port 8765
-/// --trust-remote-code` — the Apple-Silicon fast path (mirrors `mlx.ts`).
+/// --trust-remote-code` — the Apple-Silicon fast path.
 fn build_mlx_server(settings: &LoSettings) -> ManagedServer {
     let port = port_env("LO_BRAIN_PORT", MLX_PORT);
     let model = resolve_endpoint(settings).model_id;
@@ -335,8 +306,8 @@ fn build_mlx_server(settings: &LoSettings) -> ManagedServer {
 }
 
 /// `llama-server --model <path> --host 127.0.0.1 --port 8770 --jinja -fa
-/// --no-webui -ngl 999 -c <ctx>` — the universal cross-platform engine. Args are
-/// VERBATIM from `llama.ts`.
+/// --no-webui -ngl 999 -c <ctx>` — the universal cross-platform engine. Args are a
+/// tuned, deliberately fixed set.
 fn build_llama_server(settings: &LoSettings) -> ManagedServer {
     let port = port_env("LO_LLAMA_PORT", LLAMA_PORT);
     let bin = llama_bin_path();
@@ -381,7 +352,7 @@ fn build_llama_server(settings: &LoSettings) -> ManagedServer {
 
 /// Resolve the Python interpreter for the MLX server: `LO_PYTHON` (or the
 /// `LO_GEMMA_AUDIO_PYTHON` alias), else the project-local venv if present, else
-/// `python3` (mirrors `python.ts`).
+/// `python3`.
 fn python_command() -> String {
     if let Some(explicit) =
         env_trimmed("LO_PYTHON").or_else(|| env_trimmed("LO_GEMMA_AUDIO_PYTHON"))
@@ -436,7 +407,7 @@ fn port_env(key: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
-/* ---------------- HTTP helpers (the http.ts surface) ---------------- */
+/* ---------------- HTTP helpers ---------------- */
 
 /// A bare health GET; returns the HTTP status code on any response.
 async fn health_get(url: &str, api_key: Option<&str>, timeout: Duration) -> anyhow::Result<u16> {
@@ -449,25 +420,4 @@ async fn health_get(url: &str, api_key: Option<&str>, timeout: Duration) -> anyh
     }
     let res = req.send().await?;
     Ok(res.status().as_u16())
-}
-
-/// Fire a 1-token completion to warm prompt-cache / JIT. Best-effort; the result
-/// is intentionally ignored by callers (mirrors `warmCompletion`).
-async fn warm_completion(endpoint: &BackendEndpoint) -> anyhow::Result<()> {
-    let client = reqwest::Client::builder()
-        .build()
-        .map_err(|e| anyhow::anyhow!("failed to build client: {e}"))?;
-    let url = format!("{}/chat/completions", endpoint.base_url);
-    let body = serde_json::json!({
-        "model": endpoint.model_id,
-        "messages": [{ "role": "user", "content": "Say ready." }],
-        "max_tokens": 1,
-        "stream": false,
-    });
-    let mut req = client.post(&url).json(&body);
-    if let Some(key) = endpoint.api_key.as_deref() {
-        req = req.header(reqwest::header::AUTHORIZATION, format!("Bearer {key}"));
-    }
-    let _ = req.send().await?;
-    Ok(())
 }

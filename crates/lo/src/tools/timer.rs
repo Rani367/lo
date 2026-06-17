@@ -1,6 +1,5 @@
 //! Countdown timer — start a timer that, on completion, both speaks (over the
-//! `announce` channel) and raises a desktop notification. Ported from
-//! `setTimer`/`formatDuration` in `src/main/tools/desktop.ts`.
+//! `announce` channel) and raises a desktop notification.
 //!
 //! The confirmation string is returned immediately; the firing happens in a
 //! detached tokio task so the agent turn doesn't block on the countdown.
@@ -45,7 +44,6 @@ pub fn set_timer(seconds: f64, label: Option<String>, announce: UnboundedSender<
 }
 
 /// Human-friendly duration, e.g. `45 seconds`, `3 minutes`, `2 minutes 5 seconds`.
-/// Mirrors `formatDuration` in `desktop.ts`.
 fn format_duration(secs: u64) -> String {
     if secs < 60 {
         return format!("{secs} second{}", plural(secs));

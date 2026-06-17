@@ -1,14 +1,16 @@
-//! SSRF guard (ported byte-for-byte from `isPrivateIp` / `assertPublicHost` in
-//! `src/main/tools/web.ts`). The DNS resolution + redirect-following transport
-//! lives in the `lo` binary; this module owns the IP/host classification, which
-//! is the security-critical, exhaustively-tested part.
+//! SSRF guard: classify an IP/host as private so the web tools never fetch
+//! loopback, link-local, ULA, CGNAT, multicast, or cloud-metadata addresses. The
+//! DNS resolution + redirect-following transport lives in the `lo` binary; this
+//! module owns the security-critical, exhaustively-tested classification.
 
 /// True if `ip` is a private/loopback/link-local/ULA/CGNAT/multicast/unspecified
 /// address that must never be fetched. Operates on the string form (incl.
-/// IPv4-mapped IPv6) to match the original logic exactly.
+/// IPv4-mapped IPv6). IPv6 is case-insensitive (RFC 5952), so we classify on a
+/// lowercased copy.
 pub fn is_private_ip(ip: &str) -> bool {
-    // IPv4-mapped IPv6, e.g. ::ffff:169.254.169.254
-    let v4 = ip.strip_prefix("::ffff:").unwrap_or(ip);
+    let ip = ip.to_ascii_lowercase();
+    // IPv4-mapped IPv6, e.g. ::ffff:169.254.169.254 (or ::FFFF:… — now lowercased).
+    let v4 = ip.strip_prefix("::ffff:").unwrap_or(&ip);
 
     if let Some((a, b)) = parse_v4_first_two(v4) {
         if a == 10 || a == 127 || a == 0 {
@@ -32,21 +34,21 @@ pub fn is_private_ip(ip: &str) -> bool {
         return false;
     }
 
-    let lc = ip.to_lowercase();
-    if lc == "::1" || lc == "::" {
+    // `ip` is already lowercased above.
+    if ip == "::1" || ip == "::" {
         return true; // loopback / unspecified
     }
-    if lc.starts_with("fe80") || lc.starts_with("fc") || lc.starts_with("fd") {
+    if ip.starts_with("fe80") || ip.starts_with("fc") || ip.starts_with("fd") {
         return true; // link-local / ULA
     }
-    if lc.starts_with("ff") {
+    if ip.starts_with("ff") {
         return true; // multicast (ff00::/8)
     }
     false
 }
 
-/// Parse a dotted-quad IPv4 (exactly four all-digit octets, matching
-/// `/^\d+\.\d+\.\d+\.\d+$/`) and return its first two octets.
+/// Parse a dotted-quad IPv4 (exactly four all-digit octets) and return its first
+/// two octets — enough to classify every private range we care about.
 fn parse_v4_first_two(s: &str) -> Option<(u16, u16)> {
     let parts: Vec<&str> = s.split('.').collect();
     if parts.len() != 4 {
@@ -58,7 +60,8 @@ fn parse_v4_first_two(s: &str) -> Option<(u16, u16)> {
     {
         return None;
     }
-    // JS `Number("999")` allows >255; mirror that (we only branch on ranges).
+    // Octets above 255 are tolerated (we only branch on the first-two-octet
+    // ranges); a malformed quad still classifies safely.
     let a = parts[0].parse::<u32>().ok()? as u16;
     let b = parts[1].parse::<u32>().ok()? as u16;
     Some((a, b))
@@ -72,9 +75,9 @@ pub enum HostReject {
     DotLocal,
 }
 
-/// The pre-DNS literal check from `assertPublicHost`: reject a private-IP
-/// literal, `localhost`, or any `*.local` host. `None` means "passes the literal
-/// check; resolve + re-validate every record next".
+/// The pre-DNS literal check: reject a private-IP literal, `localhost`, or any
+/// `*.local` host. `None` means "passes the literal check; resolve + re-validate
+/// every record next".
 pub fn reject_literal_host(hostname: &str) -> Option<HostReject> {
     let literal = hostname.trim_start_matches('[').trim_end_matches(']');
     if is_private_ip(literal) {
@@ -132,6 +135,20 @@ mod tests {
         assert!(is_private_ip("::ffff:127.0.0.1"));
         assert!(is_private_ip("::ffff:169.254.169.254"));
         assert!(!is_private_ip("::ffff:8.8.8.8"));
+    }
+
+    #[test]
+    fn ipv4_mapped_ipv6_is_case_insensitive() {
+        // IPv6 is case-insensitive (RFC 5952): an uppercase or mixed-case mapped
+        // prefix must not slip a private address past the guard.
+        assert!(is_private_ip("::FFFF:127.0.0.1"));
+        assert!(is_private_ip("::FfFf:169.254.169.254"));
+        assert!(is_private_ip("::FFFF:10.0.0.1"));
+        assert!(!is_private_ip("::FFFF:8.8.8.8"));
+        // Mixed-case IPv6 literals classify the same as lowercase.
+        assert!(is_private_ip("FE80::1"));
+        assert!(is_private_ip("FD12:3456::1"));
+        assert!(!is_private_ip("2606:4700:4700::1111"));
     }
 
     #[test]

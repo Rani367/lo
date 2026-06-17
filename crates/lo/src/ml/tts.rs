@@ -1,8 +1,8 @@
 //! On-device text-to-speech via Kokoro (the `kokoro-tts` 0.3.3 crate, ONNX under
 //! the hood).
 //!
-//! Ports `src/renderer/ml/tts.ts`: load the ~82M Kokoro model once, then turn one
-//! chunk of text into 24 kHz mono f32 PCM per call. The caller chunks prose with
+//! Load the ~82M Kokoro model once, then turn one chunk of text into 24 kHz mono
+//! f32 PCM per call. The caller chunks prose with
 //! [`lo_core::text::chunk_for_tts`] and feeds one chunk per [`Tts::synth`].
 //!
 //! The kokoro-tts crate expects two local files in the `thewh1teagle/kokoro-onnx`
@@ -86,10 +86,10 @@ mod imp {
 
     /// Download the Kokoro graph + voices blob and load the synthesiser once.
     ///
-    /// `model_setting` is accepted for parity with the settings/ASR path but is not
-    /// used to vary the repo here: Kokoro ships as a single fixed v1.0 graph, so the
-    /// id only selects "Kokoro". The voice string is validated up front so a typo
-    /// surfaces at load time rather than on the first utterance.
+    /// `model_setting` is accepted for API consistency with ASR, though Kokoro
+    /// v1.0 is fixed: Kokoro ships as a single v1.0 graph, so the id only selects
+    /// "Kokoro" and does not vary the repo here. The voice string is validated up
+    /// front so a typo surfaces at load time rather than on the first utterance.
     pub fn load_tts(
         _model_setting: &str,
         voice: &str,

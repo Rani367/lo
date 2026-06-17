@@ -1,8 +1,8 @@
 //! System telemetry tool — read-only host info: overview, cpu, memory, disk,
-//! battery, network, or all. Ported from `src/main/tools/system.ts`, but backed
-//! by `sysinfo` + `starship-battery` instead of per-OS shell-outs.
+//! battery, network, or all. Backed by `sysinfo` + `starship-battery` for
+//! cross-platform reporting without per-OS shell-outs.
 //!
-//! The kind → section mapping reproduces the TS `want()` predicate:
+//! The kind → section mapping:
 //!   - `overview` includes the host line plus cpu/memory/disk/battery (NOT network).
 //!   - `all` includes every section.
 //!   - a specific kind includes only that section.
@@ -19,8 +19,8 @@ pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
         "cpu" | "memory" | "disk" | "battery" | "network" | "all" => kind,
         _ => "overview",
     };
-    // `want(k)`: all matches everything; overview matches everything but network;
-    // otherwise only the exact kind.
+    // Section selector: `all` matches everything; `overview` matches everything
+    // but network; otherwise only the exact kind.
     let want = |k: &str| kind == "all" || kind == k || (kind == "overview" && k != "network");
 
     let mut parts: Vec<String> = Vec::new();
@@ -176,14 +176,14 @@ fn network_line() -> String {
     }
 }
 
-// ---------- helpers (mirror system.ts) ----------
+// ---------- helpers ----------
 
-/// `{bytes/1e9:.1} GB` — matches the TS `gb()` (decimal gigabytes).
+/// `{bytes/1e9:.1} GB` — decimal gigabytes.
 fn gb(bytes: u64) -> String {
     format!("{:.1} GB", bytes as f64 / 1e9)
 }
 
-/// `{h}h {m}m` (or just `{m}m`) from seconds — matches the TS `uptime()`.
+/// `{h}h {m}m` (or just `{m}m`) from seconds.
 fn uptime(secs: u64) -> String {
     let h = secs / 3600;
     let m = (secs % 3600) / 60;

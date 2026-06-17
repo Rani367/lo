@@ -1,12 +1,10 @@
-//! Configuration (ported from `src/main/config.ts`). Fully local — there are no
-//! API keys to protect. User settings persist as plain JSON in the config dir.
-//! The Picovoice access key (optional, for the wake word) is the only secret and
-//! it is client-safe.
+//! Configuration: user settings (with defaults + JSON merge), paths, persona,
+//! history, and option lists. Fully local — there are no API keys or secrets to
+//! protect; settings persist as plain JSON in the config dir.
 //!
 //! `LoSettings` uses `#[serde(default)]`, so deserializing a partial
 //! `settings.json` fills only the present keys and the rest fall back to
-//! `Default` — exactly reproducing the TS `{ ...DEFAULT_SETTINGS, ...json }`
-//! merge.
+//! `Default` — a present key always overrides its default.
 
 pub mod history;
 pub mod options;
@@ -51,8 +49,6 @@ pub struct LoSettings {
     pub vad_negative_threshold: f32,
     /// VAD silence (ms) that ends a turn after speech.
     pub vad_redemption_ms: u32,
-    /// Wake-word ("Hey Jarvis") detection score in 0..1 needed to trigger.
-    pub wake_threshold: f32,
     /// `auto` (MLX on Apple Silicon, llama.cpp elsewhere) or an explicit engine.
     pub backend: BackendChoice,
     /// Custom OpenAI-compatible base URL (used when `backend == custom`).
@@ -76,7 +72,8 @@ impl Default for LoSettings {
             asr_model: "mlx-community/parakeet-tdt-0.6b-v3".to_string(),
             tts_model: "onnx-community/Kokoro-82M-v1.0-ONNX".to_string(),
             voice: "af_heart".to_string(),
-            activation_mode: ActivationMode::Ptt,
+            // Hands-free by default: speak and Lo replies; hold Space for push-to-talk.
+            activation_mode: ActivationMode::Vad,
             user_name: "there".to_string(),
             voice_enabled: true,
             temperature: 0.6,
@@ -87,11 +84,10 @@ impl Default for LoSettings {
             repeat_penalty: 1.1,
             min_p: 0.0,
             speech_rate: 1.15,
-            // Silero VAD defaults (parity with the tuned constants in ml/vad.rs).
+            // Silero VAD defaults: balance false triggers against clipped speech.
             vad_positive_threshold: 0.6,
             vad_negative_threshold: 0.4,
             vad_redemption_ms: 900,
-            wake_threshold: 0.5,
             backend: BackendChoice::Auto,
             llm_url: String::new(),
             llm_key: String::new(),
@@ -104,8 +100,8 @@ impl Default for LoSettings {
 
 impl LoSettings {
     /// Load settings, merging the on-disk `settings.json` over the defaults. Any
-    /// error (missing file, bad JSON) yields the defaults — matching the TS
-    /// behavior where a corrupt file silently falls back.
+    /// error (missing file, bad JSON) yields the defaults, so a corrupt file
+    /// silently falls back instead of failing startup.
     pub fn load() -> Self {
         Self::load_from(paths::settings_file())
     }
@@ -118,7 +114,7 @@ impl LoSettings {
         }
     }
 
-    /// Persist to the default settings path (pretty JSON, like the TS writer).
+    /// Persist to the default settings path as pretty-printed JSON.
     pub fn save(&self) -> std::io::Result<()> {
         self.save_to(paths::settings_file())
     }
@@ -133,24 +129,18 @@ impl LoSettings {
     }
 }
 
-/// The optional Picovoice access key for the on-device wake word.
-pub fn porcupine_key() -> Option<String> {
-    std::env::var("PICOVOICE_ACCESS_KEY")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn defaults_match_the_electron_app() {
+    fn defaults_are_sensible() {
         let s = LoSettings::default();
         assert_eq!(s.voice, "af_heart");
-        assert_eq!(s.activation_mode, ActivationMode::Ptt);
+        // Hands-free is the out-of-the-box experience.
+        assert_eq!(s.activation_mode, ActivationMode::Vad);
         assert_eq!(s.backend, BackendChoice::Auto);
+        // Destructive tools are gated off until the user opts in.
         assert!(!s.power_user_mode);
         assert!(s.allowed_fs_roots.is_empty());
         assert_eq!(s.temperature, 0.6);

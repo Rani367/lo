@@ -1,5 +1,4 @@
-//! Server-Sent-Events parsing + native tool-call reconstruction (ported from
-//! `readSse` and the tool-call accumulation in `streamCompletion`).
+//! Server-Sent-Events parsing + native tool-call reconstruction.
 //!
 //! The transport (reqwest `bytes_stream`) lives in the `lo` binary; everything
 //! that turns raw `data:` lines into accumulated prose + a `Vec<ToolCall>` is
@@ -65,9 +64,8 @@ pub enum Frame {
     Ignore,
 }
 
-/// Parse a single already-line-split SSE line, mirroring `readSse`'s per-line
-/// logic: only `data:` lines matter, `[DONE]` terminates, parse failures are
-/// silently ignored.
+/// Parse a single already-line-split SSE line: only `data:` lines matter,
+/// `[DONE]` terminates, and parse failures are silently ignored.
 pub fn parse_line(line: &str) -> Frame {
     let line = line.trim();
     let Some(payload) = line.strip_prefix("data:") else {
@@ -91,7 +89,7 @@ struct AccCall {
 }
 
 /// Accumulates a single streamed completion: appends prose deltas and merges
-/// `tool_calls` by index, exactly like `streamCompletion`.
+/// `tool_calls` by index.
 #[derive(Default)]
 pub struct StreamAccumulator {
     text: String,
@@ -104,7 +102,7 @@ impl StreamAccumulator {
     }
 
     /// Feed one parsed event. Returns the prose delta (if any) so the caller can
-    /// forward it to its `on_delta` callback — matching the TS `cb.onDelta`.
+    /// forward it to its `on_delta` callback for incremental rendering.
     pub fn push_event(&mut self, ev: &SseEvent) -> Option<String> {
         let delta = ev.choices.first().map(|c| &c.delta)?;
         let mut emitted: Option<String> = None;
@@ -128,8 +126,7 @@ impl StreamAccumulator {
                     }
                 }
                 if let Some(raw) = &func.arguments {
-                    // string delta → append verbatim; object/value → stringify
-                    // (coercion from brain.ts:149-152).
+                    // string delta → append verbatim; object/value → stringify.
                     match raw {
                         serde_json::Value::String(s) => acc.args.push_str(s),
                         other => acc.args.push_str(&other.to_string()),
@@ -156,8 +153,7 @@ impl StreamAccumulator {
     }
 
     /// Finalize into `(prose, tool_calls)`. Calls with no name are dropped; a
-    /// missing id falls back to `call_{i}`; empty args become `{}` — all matching
-    /// the TS reconstruction.
+    /// missing id falls back to `call_{i}`; empty args become `{}`.
     pub fn finish(self) -> (String, Vec<ToolCall>) {
         let tool_calls = self
             .calls

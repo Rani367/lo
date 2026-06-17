@@ -1,6 +1,5 @@
 //! Cross-platform desktop actions: open/focus/quit an app, set the system
-//! volume, capture a screenshot, and report the local date+time. Ported from
-//! `src/main/tools/desktop.ts`.
+//! volume, capture a screenshot, and report the local date+time.
 //!
 //! Every shell-out uses an argv array (never a shell string) so an
 //! LLM-provided name can't inject. On Windows the app name is handed to
@@ -185,7 +184,7 @@ pub async fn take_screenshot() -> Result<String, String> {
 /// `It is 3:05 pm on Saturday, June 14, 2026.`
 pub fn get_datetime() -> String {
     let now = Local::now();
-    // 12-hour clock with no leading zero on the hour (matches `hour: 'numeric'`).
+    // 12-hour clock with no leading zero on the hour.
     let mut hour12 = now.hour() % 12;
     if hour12 == 0 {
         hour12 = 12;
@@ -211,7 +210,7 @@ pub fn datetime_context() -> String {
 // ---------- helpers ----------
 
 /// Spawn an argv-only command, capturing nothing; error on non-zero exit or a
-/// spawn failure. Mirrors `execFile` reject-on-error semantics.
+/// spawn failure.
 async fn run(program: &str, args: &[&str]) -> Result<(), String> {
     let output = Command::new(program)
         .args(args)
@@ -282,4 +281,27 @@ fn pictures_dir() -> PathBuf {
 /// An ISO-8601 timestamp with `:`/`.` replaced by `-` (filename-safe).
 fn stamp() -> String {
     Local::now().format("%Y-%m-%dT%H-%M-%S").to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn applescript_escaping_neutralises_quotes_and_newlines() {
+        // Quotes and backslashes are escaped; newlines (which could start a new
+        // AppleScript statement) become spaces.
+        assert_eq!(escape_applescript(r#"a"b\c"#), r#"a\"b\\c"#);
+        assert_eq!(escape_applescript("line1\nline2"), "line1 line2");
+        assert_eq!(escape_applescript("plain"), "plain");
+    }
+
+    #[test]
+    fn shell_safe_drops_dangerous_characters() {
+        // Only an alphanumeric + `.`/`_`/`-` charset survives, so a crafted app
+        // name can't smuggle shell metacharacters into the bare-binary path.
+        assert_eq!(shell_safe("Firefox-1.0"), "Firefox-1.0");
+        assert_eq!(shell_safe("evil; rm -rf / #"), "evilrm-rf");
+        assert_eq!(shell_safe("a`b$(c)"), "abc");
+    }
 }

@@ -1,15 +1,13 @@
 //! Live captions — the spoken conversation rendered as light.
 //!
 //! Two layers float beneath the core: what you said (a quiet uppercase grotesk
-//! line) and Lo's reply (a warm serif line below it). Ported from
-//! `src/renderer/ui/captions.ts` + the `.cap-you` / `.cap-lo` rules in
-//! `styles.css`. This is a plain display struct the orchestrator mutates; the
-//! egui draw lives in [`draw`].
+//! line) and Lo's reply (a warm serif line below it). [`Captions`] is a plain
+//! display struct the orchestrator mutates; the egui draw lives in [`draw`].
 
 use egui::{Align, Color32, FontId, Layout, RichText};
 
 /// Default screen offset (fraction of height) the caption block sits above the
-/// bottom edge — mirrors the CSS `bottom: 13vh`.
+/// bottom edge (13% of viewport height).
 const BOTTOM_FRACTION: f32 = 0.13;
 
 /// The two caption lines plus a shared fade alpha. Word-by-word reveal is a
@@ -41,8 +39,8 @@ impl Default for Captions {
     }
 }
 
-/// Collapse runs of whitespace and trim, matching `captions.ts`'s `tokenize`
-/// join — keeps the rendered text tidy regardless of streaming chunk boundaries.
+/// Collapse runs of whitespace and trim — keeps the rendered text tidy
+/// regardless of streaming chunk boundaries.
 fn normalize(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -66,17 +64,17 @@ pub fn draw(ctx: &egui::Context, caps: &Captions) {
     }
 
     let screen = ctx.screen_rect();
-    // Width clamps to min(76ch, 84vw) in the CSS; approximate with 84% width capped.
+    // Cap the block width to 84% of the viewport, no wider than 760px.
     let max_width = (screen.width() * 0.84).min(760.0);
 
-    // --ink-dim (#b9a9a6) for the "you" line; --ink (#f6efe9) for Lo's reply.
+    // Dim ink (#b9a9a6) for the "you" line; bright ink (#f6efe9) for Lo's reply.
     let ink_dim = Color32::from_rgb(0xb9, 0xa9, 0xa6);
     let ink = Color32::from_rgb(0xf6, 0xef, 0xe9);
 
-    // Lo's serif scales like clamp(22px, 3.6vw, 40px).
+    // Lo's serif scales with viewport width: clamp(22px, 3.6vw, 40px).
     let lo_size = (screen.width() * 0.036).clamp(22.0, 40.0);
 
-    // Anchor the block 13vh above the screen bottom (CSS `bottom: 13vh`).
+    // Anchor the block 13% of the viewport height above the screen bottom.
     egui::Area::new(egui::Id::new("lo-captions"))
         .anchor(
             egui::Align2::CENTER_BOTTOM,
@@ -109,8 +107,8 @@ pub fn draw(ctx: &egui::Context, caps: &Captions) {
         });
 }
 
-/// Uppercase the text and widen its letter-spacing the way the CSS
-/// `letter-spacing: 0.14em; text-transform: uppercase` does for the "you" line.
+/// Uppercase the text and widen its letter-spacing (the tracked, uppercase
+/// treatment used for the "you" line).
 fn spaced_upper(text: &str) -> String {
     let upper = text.to_uppercase();
     // Insert a thin space between characters to approximate the tracked spacing.

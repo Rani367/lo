@@ -1,13 +1,13 @@
 //! Voice-activity detection via Silero VAD v5 (ONNX, run through `ort` 2.0).
 //!
-//! A faithful Rust port of `src/renderer/audio/capture-vad.ts`. The browser used
-//! `@ricky0123/vad-web` (`model: 'v5'`) which wraps the same Silero v5 ONNX graph;
-//! here we drive that graph directly with `ort` and re-implement the segmentation
-//! state machine — including the speculative `SilenceStart` / `SpeechResume`
-//! behaviour the TS relied on for low-latency speculative transcription.
+//! A streaming segmenter that drives the Silero v5 ONNX graph directly with `ort`
+//! and runs the segmentation state machine on its speech-probability output —
+//! including the speculative `SilenceStart` / `SpeechResume` behaviour that lets
+//! transcription start before a turn is confirmed over (low-latency speculative
+//! transcription).
 //!
-//! Frame contract (identical to the TS): **512-sample, 16 kHz mono f32** frames.
-//! At 16 kHz, 512 samples ≈ 32 ms, so the timing constants convert to frame counts:
+//! Frame contract: **512-sample, 16 kHz mono f32** frames. At 16 kHz, 512 samples
+//! ≈ 32 ms, so the timing constants convert to frame counts:
 //!   - `positiveSpeechThreshold = 0.6`, `negativeSpeechThreshold = 0.4`
 //!   - `minSpeechMs = 150`  (not separately enforced here; see note below)
 //!   - `redemptionMs  = 900` → ~28 frames of sub-threshold audio ends the turn
@@ -35,9 +35,9 @@ pub const SILERO_FILE: &str = "onnx/model.onnx";
 /// Exact frame size the Silero v5 16 kHz model consumes.
 pub const FRAME_SAMPLES: usize = 512;
 
-/// Speech probability at/above which a frame counts as speech (TS: 0.6).
+/// Speech probability at/above which a frame counts as speech.
 const POSITIVE_THRESHOLD: f32 = 0.6;
-/// Speech probability below which a frame counts as silence (TS: 0.4).
+/// Speech probability below which a frame counts as silence.
 const NEGATIVE_THRESHOLD: f32 = 0.4;
 /// Pre-roll prepended to each utterance: `preSpeechPadMs(250) / 32ms ≈ 7 frames`.
 const PRE_SPEECH_PAD_FRAMES: usize = 7;
@@ -49,7 +49,7 @@ const MIN_UTTERANCE_SAMPLES: usize = 6400;
 pub const FRAME_MS: f32 = 32.0;
 
 /// Tunable VAD thresholds (exposed via settings/env). Defaults match the constants
-/// above, which mirror the original `@ricky0123/vad-web` v5 behaviour.
+/// above, tuned for Silero v5 at 16 kHz.
 #[derive(Debug, Clone, Copy)]
 pub struct VadTuning {
     /// Probability at/above which a frame counts as speech.
@@ -70,21 +70,21 @@ impl Default for VadTuning {
     }
 }
 
-/// Events emitted as frames are pushed, mirroring the TS `VadHandlers` callbacks.
+/// Events emitted as frames are pushed through the segmenter.
 #[derive(Debug, Clone, PartialEq)]
 pub enum VadEvent {
-    /// Speech began (was `onSpeechStart`).
+    /// Speech began.
     SpeechStart,
     /// Silence first detected after speech — *speculative*. Carries the pre-roll +
     /// speech-so-far so a speculative transcription can start before the turn is
-    /// confirmed over (was `onSilenceStart`). Invalidated by [`VadEvent::SpeechResume`].
+    /// confirmed over. Invalidated by [`VadEvent::SpeechResume`].
     SilenceStart(Vec<f32>),
     /// The user resumed talking after a [`VadEvent::SilenceStart`]; discard the
-    /// speculative clip (was `onSpeechResume`).
+    /// speculative clip.
     SpeechResume,
     /// The turn ended after the redemption window. Carries the full utterance
     /// (pre-roll + all speech frames) **iff** it is ≥ [`MIN_UTTERANCE_SAMPLES`];
-    /// otherwise it is empty (a misfire) (was `onSpeechEnd` / `onVADMisfire`).
+    /// otherwise it is empty (a misfire).
     SpeechEnd(Vec<f32>),
 }
 
@@ -110,7 +110,7 @@ mod imp {
         /// Tunable thresholds (positive/negative probability, redemption window).
         tuning: VadTuning,
 
-        // ── segmentation state (mirrors the TS fields) ──
+        // ── per-turn segmentation state ──
         /// True once a frame crossed the positive threshold for the current turn.
         is_speaking: bool,
         /// True once a speculative `SilenceStart` fired for the current turn.
@@ -139,8 +139,11 @@ mod imp {
             let prob = match self.infer(frame_16k) {
                 Ok(p) => p,
                 // A transient inference failure shouldn't crash capture; treat the
-                // frame as silence and keep going.
-                Err(_) => return events,
+                // frame as silence and keep going, but leave a debug trail.
+                Err(e) => {
+                    tracing::debug!("VAD inference failed; treating frame as silence: {e:#}");
+                    return events;
+                }
             };
 
             // Maintain the rolling pre-roll while not yet capturing speech.
@@ -196,7 +199,7 @@ mod imp {
             events
         }
 
-        /// Clear all segmentation state and zero the LSTM state (was destroy/init).
+        /// Clear all segmentation state and zero the LSTM state.
         pub fn reset(&mut self) {
             self.state.iter_mut().for_each(|v| *v = 0.0);
             self.end_turn();
@@ -212,8 +215,8 @@ mod imp {
             self.redemption = 0;
         }
 
-        /// Build the utterance clip = pre-roll lead-in + accumulated speech, matching
-        /// the canonical `onSpeechEnd` clip the TS library prepended.
+        /// Build the utterance clip = pre-roll lead-in + accumulated speech, so the
+        /// emitted clip always carries the speech that began before detection fired.
         fn utterance_clip(&self) -> Vec<f32> {
             let mut clip = Vec::with_capacity(self.pre_roll.len() + self.speech.len());
             clip.extend(self.pre_roll.iter().copied());

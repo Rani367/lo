@@ -1,8 +1,7 @@
 //! The winit `ApplicationHandler`: owns the window, the GPU (`Gui`), the cpal
 //! `AudioEngine` (kept alive here on the main thread), and the UI-side
-//! `Session` state machine. It forwards input to the worker/listen thread and
-//! renders the orb + captions each frame. Ported from the orchestration in
-//! `src/renderer/renderer.ts`.
+//! `Session` state machine. It is the orchestrator — it forwards input to the
+//! worker/listen thread and renders the orb + captions each frame.
 
 pub mod state;
 
@@ -11,7 +10,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use lo_core::types::LoState;
-use lo_core::LoSettings;
 use tokio::sync::{mpsc::UnboundedSender, watch};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -21,8 +19,9 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow};
 /// Idle redraw cadence (~30 fps). While active (listening/thinking/speaking,
 /// audio playing, or the boot reveal) we redraw at the display's full rate.
 const IDLE_FRAME: Duration = Duration::from_millis(33);
-/// The orb's boot-reveal duration; redraw at full rate until it finishes.
-const BOOT_SECONDS: f32 = 1.3;
+/// The orb's boot-reveal duration; redraw at full rate until it finishes. Matches
+/// the reveal easing in `gui::orb` so full-rate rendering lasts exactly the reveal.
+const BOOT_SECONDS: f32 = 1.1;
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
@@ -38,7 +37,6 @@ pub struct AppCtx {
     pub ui_tx: UnboundedSender<UiCommand>,
     pub epoch_tx: watch::Sender<u64>,
     pub ptt_active: Arc<AtomicBool>,
-    pub settings: LoSettings,
     /// `--say "<text>"`: a synthetic transcript injected once the window is up.
     pub pending_say: Option<String>,
 }
@@ -51,7 +49,6 @@ pub struct App {
     ui_tx: UnboundedSender<UiCommand>,
     epoch_tx: watch::Sender<u64>,
     ptt_active: Arc<AtomicBool>,
-    settings: LoSettings,
 
     session: Session,
     gui: Option<Gui>,
@@ -72,7 +69,6 @@ impl App {
             ui_tx: ctx.ui_tx,
             epoch_tx: ctx.epoch_tx,
             ptt_active: ctx.ptt_active,
-            settings: ctx.settings,
             session: Session::new(),
             gui: None,
             window: None,
@@ -91,7 +87,8 @@ impl App {
             || self.start.elapsed().as_secs_f32() < BOOT_SECONDS
     }
 
-    /// Space pressed/released → push-to-talk (ptt is the default activation mode).
+    /// Space pressed/released → push-to-talk. Works in every activation mode as an
+    /// override on top of hands-free; pressing it also barges in on any reply.
     fn on_key(&mut self, ev: &KeyEvent) {
         let is_space = matches!(ev.logical_key, Key::Named(NamedKey::Space));
         if !is_space {
@@ -106,7 +103,7 @@ impl App {
                 let epoch = self.session.begin_listen();
                 let _ = self.epoch_tx.send(epoch);
                 self.audio.stop_playback();
-                let _ = self.ui_tx.send(UiCommand::Cancel { epoch });
+                let _ = self.ui_tx.send(UiCommand::Cancel);
                 self.ptt_active.store(true, Ordering::SeqCst);
                 self.set_gui_state();
             }
@@ -122,7 +119,7 @@ impl App {
 
     fn on_app_event(&mut self, ev: AppEvent) {
         match ev {
-            AppEvent::Transcribed { text, .. } => {
+            AppEvent::Transcribed { text } => {
                 let t = text.trim().to_string();
                 if t.is_empty() {
                     // Misfire / too short — return to idle.
@@ -198,7 +195,7 @@ impl App {
 
         let spectrum = self.audio.output_spectrum();
         // The orb's size/brightness is driven by mic level while listening and by
-        // the output spectrum energy while Lo is speaking (matches the renderer feel).
+        // the output spectrum energy while Lo is speaking.
         let speaking = self.session.state == LoState::Speaking || self.audio.is_playing();
         let level = if speaking {
             (spectrum.iter().sum::<f32>() / spectrum.len() as f32).clamp(0.0, 1.0)
@@ -257,7 +254,7 @@ impl ApplicationHandler<AppEvent> for App {
         // visual / end-to-end testing without a microphone).
         if let Some(text) = self.pending_say.take() {
             tracing::info!("injecting --say transcript: {text:?}");
-            self.on_app_event(AppEvent::Transcribed { id: 0, text });
+            self.on_app_event(AppEvent::Transcribed { text });
         }
     }
 

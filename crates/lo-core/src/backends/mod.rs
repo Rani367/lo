@@ -1,8 +1,7 @@
-//! LLM backend selection + endpoint resolution (the pure logic of
-//! `src/main/backends/index.ts` and the per-backend `baseUrl()/modelId()/apiKey()`
-//! accessors). The process supervision (`ManagedServer`), the streaming HTTP
-//! client, and the actual downloads live in the `lo` binary crate; this module
-//! decides *which* engine serves and *where* to reach it.
+//! LLM backend selection + endpoint resolution: decide *which* engine serves and
+//! *where* to reach it (its base URL, model id, and API key). The process
+//! supervision (`ManagedServer`), the streaming HTTP client, and the actual
+//! downloads live in the `lo` binary crate.
 
 pub mod download;
 pub mod models;
@@ -28,8 +27,8 @@ pub struct BackendEndpoint {
     pub api_key: Option<String>,
 }
 
-/// Which concrete backend should serve, given env + settings (mirrors
-/// `resolveBackendKind`). Reads `LO_LLM_URL` and the host platform/arch.
+/// Which concrete backend should serve, given env + settings. Reads `LO_LLM_URL`
+/// and the host platform/arch.
 pub fn resolve_backend_kind(settings: &LoSettings) -> BackendKind {
     let has_custom_url = env_nonempty("LO_LLM_URL");
     let is_apple_silicon = cfg!(all(target_os = "macos", target_arch = "aarch64"));
@@ -95,8 +94,7 @@ pub fn resolve_model_id(settings_model: &str, kind: BackendKind, ram_bytes: u64)
     }
 }
 
-/// Resolve the endpoint for the active backend, honoring the same `LO_*` env
-/// overrides the TS accessors used.
+/// Resolve the endpoint for the active backend, honoring the `LO_*` env overrides.
 pub fn resolve_endpoint(settings: &LoSettings) -> BackendEndpoint {
     let kind = resolve_backend_kind(settings);
     match kind {

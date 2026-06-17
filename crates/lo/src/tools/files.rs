@@ -1,5 +1,5 @@
 //! Filesystem tools — read/list/search/open/write/move/delete, all sandboxed to
-//! the allowed roots. Ported from `src/main/tools/files.ts`. Every path the
+//! the allowed roots. Every path the
 //! model supplies goes through [`lo_core::tools::sandbox::resolve_in_roots`],
 //! which expands `~`, absolutizes, lexically normalizes, realpath-dereferences
 //! symlinks, and verifies the result lives inside an allowed root — so a
@@ -53,7 +53,7 @@ pub async fn list_dir(settings: &LoSettings, path: &str) -> Result<String, Strin
         .take(MAX_LIST)
         .map(|(is_dir, name)| format!("{} {name}", if is_dir { "d" } else { "-" }))
         .collect();
-    // The TS sorts the rendered lines (after the slice), so directories and files
+    // Sort the rendered lines (after the slice), so directories and files
     // interleave by their `d …` / `- …` rendering.
     lines.sort();
 

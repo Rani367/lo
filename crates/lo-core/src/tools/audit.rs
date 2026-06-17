@@ -1,7 +1,7 @@
-//! Audit log for gated tool invocations (ported from `src/main/tools/confirm.ts`).
-//! confirm/danger tools run only when power-user mode is on; every gated
-//! invocation — allowed, denied, or errored — is appended here for an
-//! after-the-fact record. Best-effort: logging never breaks a turn.
+//! Audit log for gated tool invocations. Confirm/danger tools run only when
+//! power-user mode is on; every gated invocation — allowed, denied, or errored —
+//! is appended here (one JSON line each) for an after-the-fact record.
+//! Best-effort: logging never breaks a turn.
 
 use serde::Serialize;
 use std::fs::OpenOptions;
@@ -23,8 +23,8 @@ pub enum Decision {
 
 #[derive(Serialize)]
 struct AuditLine<'a> {
-    /// Unix epoch milliseconds (the TS used an ISO-8601 string; epoch ms keeps
-    /// the core date-library-free and is trivially convertible).
+    /// Unix epoch milliseconds — keeps the core date-library-free and is trivially
+    /// convertible to any human format.
     t: u128,
     tool: &'a str,
     args: serde_json::Value,
@@ -46,7 +46,7 @@ pub fn audit_log_to(
         tool,
         args: truncate_args(args),
         decision,
-        detail: detail.chars().take(200).collect(),
+        detail: truncate_detail(detail),
     };
     let Ok(json) = serde_json::to_string(&line) else {
         return;
@@ -84,13 +84,27 @@ pub fn audit_log(tool: &str, args: &serde_json::Value, decision: Decision, detai
     );
 }
 
-/// Truncate an args blob to ~500 chars of JSON, matching the TS `truncate`.
+/// Truncate an args blob to ~500 chars of JSON so a huge `write_file` body can't
+/// bloat the log; the ellipsis marks where it was cut.
 fn truncate_args(args: &serde_json::Value) -> serde_json::Value {
     let s = args.to_string();
     if s.len() > 500 {
-        serde_json::Value::String(format!("{}…", &s[..500]))
+        // Cut on a char boundary (`s[..500]` could split a multi-byte char).
+        let cut: String = s.chars().take(500).collect();
+        serde_json::Value::String(format!("{cut}…"))
     } else {
         args.clone()
+    }
+}
+
+/// Cap the free-text `detail` at 200 chars, appending an ellipsis when truncated
+/// so a clipped entry is visibly incomplete rather than silently cut.
+fn truncate_detail(detail: &str) -> String {
+    if detail.chars().count() > 200 {
+        let cut: String = detail.chars().take(200).collect();
+        format!("{cut}…")
+    } else {
+        detail.to_string()
     }
 }
 
@@ -148,5 +162,27 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(body.lines().next().unwrap()).unwrap();
         // args got coerced to a truncated string ending in the ellipsis.
         assert!(v["args"].as_str().unwrap().ends_with('…'));
+    }
+
+    #[test]
+    fn truncates_long_detail_with_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lo-audit.log");
+        let long = "d".repeat(500);
+        audit_log_to(
+            &path,
+            "run_command",
+            &serde_json::json!({}),
+            Decision::Error,
+            &long,
+        );
+        let body = std::fs::read_to_string(&path).unwrap();
+        let v: serde_json::Value = serde_json::from_str(body.lines().next().unwrap()).unwrap();
+        let detail = v["detail"].as_str().unwrap();
+        assert!(
+            detail.ends_with('…'),
+            "expected truncation marker: {detail}"
+        );
+        assert_eq!(detail.chars().count(), 201); // 200 chars + the ellipsis
     }
 }

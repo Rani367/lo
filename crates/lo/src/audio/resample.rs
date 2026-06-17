@@ -24,10 +24,8 @@ pub struct MonoResampler {
     inner: Async<f32>,
     from_rate: u32,
     to_rate: u32,
-    /// Input frames not yet consumed (rubato needs exactly `chunk` frames/call).
+    /// Input frames not yet consumed (rubato needs a full `CHUNK` per call).
     pending: Vec<f32>,
-    /// Fixed number of input frames consumed per `process` call.
-    chunk: usize,
     /// Scratch holding the produced output of the most recent `process` call.
     out_scratch: Vec<f32>,
 }
@@ -56,7 +54,6 @@ impl MonoResampler {
             from_rate,
             to_rate,
             pending: Vec::with_capacity(CHUNK * 2),
-            chunk: CHUNK,
             out_scratch: Vec::new(),
         })
     }
@@ -79,7 +76,7 @@ impl MonoResampler {
     pub fn process(&mut self, input: &[f32], out: &mut Vec<f32>) {
         self.pending.extend_from_slice(input);
         // The fixed-input resampler may want a different number of frames per
-        // call after a ratio change; for our fixed ratio it stays at `chunk`,
+        // call after a ratio change; for our fixed ratio it stays at `CHUNK`,
         // but we honour `input_frames_next` defensively.
         loop {
             let need = self.inner.input_frames_next().max(1);

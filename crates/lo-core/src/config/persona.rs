@@ -1,6 +1,6 @@
-//! The Lo persona — system prompt (ported from `src/main/persona.ts`). Persona /
-//! behaviour rules are top-loaded. Tuned for a local model spoken aloud by
-//! Kokoro, so it asks for clean prose with no markup. Tools reach the model
+//! The Lo persona — the system prompt that defines Lo's voice and behaviour.
+//! Persona / behaviour rules are top-loaded. Tuned for a local model spoken aloud
+//! by Kokoro, so it asks for clean prose with no markup. Tools reach the model
 //! through native function-calling, so the prompt only states WHEN to use them.
 
 use super::LoSettings;

@@ -1,8 +1,8 @@
-//! The brain — the native function-calling agent loop (ported from
-//! `src/main/brain.ts`). The async transport (streaming `reqwest` to
-//! `{base_url}/chat/completions`) lives in the `lo` binary crate, which drives
-//! these pure building blocks: shaping the conversation, building the request
-//! body, accumulating the SSE stream (`sse`), and appending each tool round.
+//! The brain — the native function-calling agent loop. The async transport
+//! (streaming `reqwest` to `{base_url}/chat/completions`) lives in the `lo` binary
+//! crate, which drives these pure building blocks: shaping the conversation,
+//! building the request body, accumulating the SSE stream (`sse`), and appending
+//! each tool round.
 
 pub mod sse;
 pub mod types;
@@ -119,8 +119,8 @@ pub fn build_request_body(
     body
 }
 
-/// Append the assistant's tool-call turn followed by each tool result, mirroring
-/// the loop body in `runBrainTurn`. `results` must be 1:1 with `calls`.
+/// Append the assistant's tool-call turn followed by each tool result, ready for
+/// the next round of the agent loop. `results` must be 1:1 with `calls`.
 pub fn append_tool_round(
     convo: &mut Vec<ReqMessage>,
     assistant_text: &str,

@@ -1,14 +1,13 @@
-//! Cross-platform application paths, replacing Electron's `app.getPath('userData')`
-//! and the hardcoded `~/.cache/huggingface`. Uses the `directories` crate.
+//! Cross-platform application paths, resolved via the `directories` crate.
 //!
-//! Config (settings.json, history.json, lo-audit.log) lives in the config dir;
+//! Config (settings.json, history.json, lo-audit.log) lives in the OS config dir;
 //! large downloaded artifacts (llama-server binary, GGUF / ONNX / GGML weights)
-//! live in the cache dir.
+//! live in the OS cache dir.
 
 use directories::{BaseDirs, ProjectDirs};
 use std::path::PathBuf;
 
-/// `ProjectDirs::from("com", "lo", "assistant")` — matches the planned bundle id
+/// `ProjectDirs::from("com", "lo", "assistant")` — matches the bundle id
 /// `com.lo.assistant`.
 fn project_dirs() -> Option<ProjectDirs> {
     ProjectDirs::from("com", "lo", "assistant")

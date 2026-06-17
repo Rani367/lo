@@ -1,8 +1,8 @@
 //! The tokio worker — the native function-calling agent loop (the orchestration
-//! half of `src/main/brain.ts`, with the streaming transport in `crate::brain`).
-//! Owns the backend `Engine`, dispatches tools, and drives Kokoro TTS on a
-//! dedicated std thread (Kokoro's session is !Send, so it can't live on the
-//! tokio pool). Emits `AppEvent`s to the UI via the `EventLoopProxy`.
+//! layer; the streaming transport lives in `crate::brain`). Owns the backend
+//! `Engine`, dispatches tools, and drives Kokoro TTS on a dedicated std thread
+//! (Kokoro's session is !Send, so it can't live on the tokio pool). Emits
+//! `AppEvent`s to the UI via the `EventLoopProxy`.
 
 use std::sync::mpsc::{Receiver as StdReceiver, Sender as StdSender};
 
@@ -43,7 +43,7 @@ struct TtsMsg {
 
 pub async fn run(mut ctx: WorkerCtx) {
     let engine = Engine::new();
-    let mut settings = ctx.settings;
+    let settings = ctx.settings;
 
     // tools (e.g. set_timer) push announcements here.
     let (announce_tx, mut announce_rx) = unbounded_channel::<String>();
@@ -137,14 +137,7 @@ pub async fn run(mut ctx: WorkerCtx) {
                     }
                 }
             }
-            UiCommand::Cancel { .. } => { /* the epoch watch already aborts the in-flight turn */ }
-            UiCommand::Transcribe { .. } => { /* transcription runs on the listen thread */ }
-            UiCommand::UpdateSettings(s) => {
-                settings = *s;
-                if let Err(e) = engine.restart(&settings).await {
-                    tracing::warn!("engine restart failed: {e:#}");
-                }
-            }
+            UiCommand::Cancel => { /* the epoch watch already aborts the in-flight turn */ }
             UiCommand::Shutdown => {
                 engine.stop();
                 break;

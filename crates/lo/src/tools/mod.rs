@@ -4,10 +4,9 @@
 //! reused verbatim here; this module only carries the bodies that need HTTP,
 //! process spawning, the clipboard, screen capture, notifications, and timers.
 //!
-//! Ported from `src/main/tools/{web,websearch,system,desktop,media,files,shell,
-//! clipboard}.ts`. The [`dispatch`] entry reproduces `registry.ts`'s
-//! `dispatchTool` exactly: parse args, run the safety gate, audit non-`Safe`
-//! tiers, and return a plain string the brain can phrase in the Lo voice.
+//! The [`dispatch`] entry implements the tool dispatcher for the registry: parse
+//! args, run the safety gate, audit non-`Safe` tiers, and return a plain string
+//! the brain can phrase in the Lo voice.
 
 mod clipboard;
 mod desktop;
@@ -29,7 +28,6 @@ pub use desktop::datetime_context;
 
 /// Execute a requested tool by name and return a string result for the brain.
 ///
-/// Mirrors `dispatchTool` in `registry.ts`:
 /// 1. Parse `args_json` with serde_json; on parse failure return a fixed message.
 /// 2. Run the safety gate; if it denies, audit `Denied` and return the canned
 ///    power-user refusal.
@@ -43,7 +41,7 @@ pub async fn dispatch(
     settings: &LoSettings,
     announce: &UnboundedSender<String>,
 ) -> String {
-    // 1) Parse the arguments (empty string => empty object, matching the TS).
+    // 1) Parse the arguments (empty string => empty object).
     let args: Value = if args_json.is_empty() {
         Value::Object(Default::default())
     } else {
@@ -78,8 +76,8 @@ pub async fn dispatch(
     }
 }
 
-/// String helper mirroring `String(args.x ?? '')`: returns the string at `key`,
-/// or `""` if missing/non-string.
+/// Coerce the value at `key` to a string: returns the string at `key`, or `""`
+/// if missing/non-string.
 fn str_arg(args: &Value, key: &str) -> String {
     args.get(key)
         .and_then(Value::as_str)
@@ -87,7 +85,7 @@ fn str_arg(args: &Value, key: &str) -> String {
         .to_string()
 }
 
-/// Number helper mirroring `Number(args.x)`: accepts a JSON number or a numeric
+/// Coerce the value at `key` to a number: accepts a JSON number or a numeric
 /// string, else NaN-like behavior (returns `f64::NAN`, callers clamp/round).
 fn num_arg(args: &Value, key: &str) -> f64 {
     match args.get(key) {
@@ -97,7 +95,7 @@ fn num_arg(args: &Value, key: &str) -> f64 {
     }
 }
 
-/// `args.x ? String(args.x) : undefined` — a present, non-empty string or None.
+/// A present, non-empty string at `key`, or `None`.
 fn opt_str_arg(args: &Value, key: &str) -> Option<String> {
     match args.get(key) {
         Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
@@ -105,7 +103,8 @@ fn opt_str_arg(args: &Value, key: &str) -> Option<String> {
     }
 }
 
-/// `Array.isArray(v) ? v.map(String) : []` — coerce a JSON array to `Vec<String>`.
+/// Coerce a JSON array at `key` to `Vec<String>` (stringifying each element),
+/// or an empty vec if the value is missing or not an array.
 fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
     match args.get(key) {
         Some(Value::Array(items)) => items
@@ -120,7 +119,7 @@ fn string_array_arg(args: &Value, key: &str) -> Vec<String> {
     }
 }
 
-/// The `switch (name)` body from `registry.ts`'s `execute`. Returns `Ok(result)`
+/// Dispatch by tool name to the matching execution body. Returns `Ok(result)`
 /// or `Err(message)`; the caller wraps the error as `Error running {name}: ...`.
 async fn execute(
     name: &str,
@@ -201,8 +200,8 @@ async fn execute(
             .await
         }
 
-        // Unknown tools return a normal string (the TS `execute` returns, not
-        // throws, so it is not wrapped as "Error running …").
+        // Unknown tools return a normal string (an `Ok`, not an `Err`, so it is
+        // not wrapped as "Error running …").
         other => Ok(format!("Error: unknown tool \"{other}\".")),
     }
 }

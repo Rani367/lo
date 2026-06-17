@@ -1,14 +1,13 @@
 //! On-device speech-to-text via whisper.cpp (the `whisper-rs` 0.16 bindings).
 //!
-//! Ports `src/renderer/ml/asr.ts`: a single model loads once, each clip creates a
-//! fresh decode state, runs greedy whisper, and the segments are joined + trimmed.
-//! Input is **already 16 kHz mono f32** (the rate whisper.cpp wants), so no
-//! resampling happens here — the caller (cpal capture / VAD) delivers it that way.
+//! A single model loads once; each clip creates a fresh decode state, runs greedy
+//! whisper, and the segments are joined + trimmed. Input is **already 16 kHz mono
+//! f32** (the rate whisper.cpp wants), so no resampling happens here — the caller
+//! (cpal capture / VAD) delivers it that way.
 //!
 //! The GGML weights come from the canonical `ggerganov/whisper.cpp` HF repo. The
-//! `asr_model` setting is mapped to a GGML filename; the old MLX Parakeet id (the
-//! default on Apple Silicon, which has no whisper.cpp equivalent) falls back to
-//! `base.en`, mirroring the TS default of `whisper-base.en`.
+//! `asr_model` setting is mapped to a GGML filename; an MLX-style id (which has no
+//! whisper.cpp equivalent) falls back to the `base.en` default.
 //!
 //! Feature-gated behind `asr-whisper`; with the feature off, [`load_asr`] returns
 //! a descriptive error so the crate still builds (e.g. on a host without a
@@ -20,13 +19,12 @@ use crate::ml::download::Progress;
 pub const WHISPER_REPO: &str = "ggerganov/whisper.cpp";
 
 /// Default GGML model — small, fast, accurate for short push-to-talk clips.
-/// Mirrors the TS default `onnx-community/whisper-base.en`.
 pub const DEFAULT_GGML: &str = "ggml-base.en.bin";
 
 /// Map an `asr_model` setting to a GGML filename in [`WHISPER_REPO`].
 ///
-/// The settings ship MLX ids (`mlx-community/parakeet-*`, `mlx-community/whisper-*`)
-/// that whisper.cpp can't load, so we translate them to the nearest GGML weight.
+/// Some settings carry MLX-style ids (e.g. `mlx-community/whisper-*`) that
+/// whisper.cpp can't load, so we translate them to the nearest GGML weight.
 /// Anything already shaped like a `ggml-*.bin` filename is passed through verbatim.
 pub fn ggml_file_for(model_setting: &str) -> String {
     let m = model_setting.trim();
@@ -62,7 +60,7 @@ pub fn ggml_file_for(model_setting: &str) -> String {
         // A multilingual "base" was explicitly requested.
         "ggml-base.bin".to_string()
     } else {
-        // Parakeet (Apple Silicon default) and everything unrecognised → base.en.
+        // Anything unrecognised (including MLX-only ids) → base.en.
         DEFAULT_GGML.to_string()
     }
 }
@@ -95,7 +93,7 @@ mod imp {
 
     /// A loaded whisper.cpp model. The [`WhisperContext`] holds the weights; a
     /// fresh [`WhisperState`] is created per `transcribe` call (cheap relative to
-    /// loading, and keeps decodes independent — matching the TS one-shot calls).
+    /// loading, and keeps each decode independent as a one-shot call).
     pub struct Asr {
         ctx: WhisperContext,
         english_only: bool,

@@ -1,1 +1,14 @@
+# Build output
 /target
+# cargo-packager installer output
+/dist
+
+# Local environment / secrets
+.env
+.env.local
+
+# Stray partial downloads
+*.part
+
+# OS cruft
+.DS_Store

@@ -4,9 +4,9 @@
 //! to disk with progress and land atomically (`.part` → rename) so a crashed
 //! download never leaves a half-file that looks complete.
 //!
-//! Ported from `src/main/backends/download.ts`. The pure resolution logic
-//! (`match_llama_asset` / `resolve_gguf_url` / the host matrix) is reused from
-//! `lo_core::backends::download`; this module owns only the network + extraction.
+//! The pure resolution logic (`match_llama_asset` / `resolve_gguf_url` / the host
+//! matrix) lives in `lo_core::backends::download`; this module owns only the
+//! network + extraction.
 
 use std::path::{Path, PathBuf};
 
@@ -18,7 +18,7 @@ use serde::Deserialize;
 use tokio::io::AsyncWriteExt;
 
 /// Progress callback: `(label, pct)` where `pct` is `None` for an indeterminate
-/// phase. Matches the `Progress` alias in the TS.
+/// phase.
 pub type Progress<'a> = Option<&'a (dyn Fn(&str, Option<u8>) + Send + Sync)>;
 
 fn report(progress: Progress, label: &str, pct: Option<u8>) {
@@ -56,7 +56,7 @@ fn http_client() -> anyhow::Result<reqwest::Client> {
 }
 
 /// Stream a URL to `dest` atomically (`.part` → rename), reporting 0–100% when a
-/// content-length is known. Mirrors `downloadFile`.
+/// content-length is known.
 pub async fn download_file(
     url: &str,
     dest: &Path,
@@ -137,8 +137,8 @@ async fn download_file_inner(
 /* ---------------- llama-server binary ---------------- */
 
 /// Resolve the download URL + asset name for the llama-server release for this
-/// host (mirrors `resolveLlamaAssetUrl`). Honors `LO_LLAMA_RELEASE_URL`,
-/// `LO_LLAMA_RELEASE_TAG`, and `LO_LLAMA_VARIANT`.
+/// host. Honors `LO_LLAMA_RELEASE_URL`, `LO_LLAMA_RELEASE_TAG`, and
+/// `LO_LLAMA_VARIANT`.
 async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
     if let Some(explicit) = env_trimmed("LO_LLAMA_RELEASE_URL") {
         // Derive a leaf name from the URL path.
@@ -198,7 +198,7 @@ async fn resolve_llama_asset_url() -> anyhow::Result<(String, String)> {
 
 /// Ensure the `llama-server` binary exists at `dest`, downloading + extracting if
 /// missing. Co-locates sibling shared libraries and swaps the whole directory
-/// into place atomically (mirrors `ensureLlamaBinary`).
+/// into place atomically.
 pub async fn ensure_llama_binary(dest: &Path, progress: Progress<'_>) -> anyhow::Result<()> {
     if dest.exists() {
         return Ok(());
@@ -348,7 +348,7 @@ fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
 /* ---------------- GGUF weights ---------------- */
 
 /// Ensure the GGUF weights exist at `dest`, downloading them if missing. Honors
-/// the `LO_LLAMA_GGUF_URL` override (mirrors `ensureGgufModel`).
+/// the `LO_LLAMA_GGUF_URL` override.
 pub async fn ensure_gguf_model(
     model_id: &str,
     dest: &Path,

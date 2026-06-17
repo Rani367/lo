@@ -1,11 +1,11 @@
-# Lo / J.A.R.V.I.S — pure-native Rust rewrite.
+# Lo — a fast, local, pure-native Rust voice agent.
 #
 # Workspace. `lo-core` holds the pure, dependency-light logic (config, the brain
 # agent loop + SSE parsing, backend selection + download-URL resolution + the RAM
 # ladder, the tool registry + safety gate + SSRF guard + filesystem sandbox, TTS
 # chunking) so it builds fast and is exhaustively unit-tested without dragging in
-# the GPU / audio / ML native toolchain. The `lo` binary crate (added in a later
-# phase) layers winit + wgpu + cpal + whisper-rs + ort on top.
+# the GPU / audio / ML native toolchain. The `lo` binary crate layers
+# winit + wgpu + cpal + whisper-rs + ort on top.
 [workspace]
 resolver = "2"
 members = ["crates/lo-core", "crates/lo"]

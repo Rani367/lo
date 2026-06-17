@@ -1,6 +1,5 @@
 //! `run_command` — run an arbitrary executable. The most powerful (and most
 //! dangerous) capability, so it is Danger-tier (gated unless power-user mode).
-//! Ported from `src/main/tools/shell.ts`.
 //!
 //! The validation (non-empty command, argv list, cwd confined to an allowed
 //! root) is reused from [`lo_core::tools::shell::prepare`]; this body only
@@ -17,7 +16,7 @@ use tokio::time::timeout;
 
 /// Run `command` with `args` in `cwd` (defaulting to the first allowed root).
 /// Returns combined stdout/stderr (truncated) on success, or a
-/// `Command failed (…)` line on a non-zero exit, matching `runCommand`.
+/// `Command failed (…)` line on a non-zero exit.
 pub async fn run_command(
     settings: &LoSettings,
     command: &str,
@@ -40,7 +39,7 @@ pub async fn run_command(
     let output = match timeout(Duration::from_millis(TIMEOUT_MS), spawn).await {
         Ok(Ok(o)) => o,
         Ok(Err(e)) => {
-            // Spawn/exec failure (e.g. command not found) — report like `execFile`.
+            // Spawn/exec failure (e.g. command not found) — report it as a result.
             return Ok(format!(
                 "Command failed (error): {}",
                 truncate_output(&e.to_string())
