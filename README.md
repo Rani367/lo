@@ -2,6 +2,10 @@
 
 **A fast, fully-local voice agent — pure-native Rust. No cloud, no webview, no Python.**
 
+<p align="center">
+  <img src="docs/orb.png" alt="Lo's living-core orb glowing on a deep dawn field" width="760">
+</p>
+
 Lo listens, thinks, and speaks entirely on your own machine. Talk to it hands-free
 and it answers out loud, runs tools on your computer, and shows a living orb that
 breathes with the conversation. Speech recognition, speech synthesis, voice-activity
