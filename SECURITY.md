@@ -57,6 +57,16 @@ Even unsigned, every release is verifiable for free:
   Get-FileHash .\Lo_1.0.0_x64-setup.exe -Algorithm SHA256
   ```
 
+- **Signed checksums (GPG).** `SHA256SUMS` is GPG-signed as `SHA256SUMS.asc` with
+  the project's release key, published in [`KEYS`](KEYS)
+  (fingerprint `1CAC E82E 23D3 4B4F 4318  6870 1310 4184 FA59 1EFF`). Confirm the
+  checksum file is authentic before trusting it:
+
+  ```bash
+  gpg --import KEYS
+  gpg --verify SHA256SUMS.asc SHA256SUMS
+  ```
+
 - **Build provenance.** Every installer carries a signed
   [SLSA build-provenance attestation](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds)
   proving it was built by this repository's CI from this source. Verify it with

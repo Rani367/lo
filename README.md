@@ -63,8 +63,9 @@ Download the installer for your platform from the
 > Release artifacts are currently **unsigned**. On macOS, right-click the app and
 > choose **Open** the first time (or run `xattr -dr com.apple.quarantine /Applications/Lo.app`).
 > On Windows, click through the SmartScreen prompt. Each release ships a
-> `SHA256SUMS` file and a GitHub build-provenance attestation you can verify with
-> `gh attestation verify <installer> --repo Rani367/lo` — see [SECURITY.md](SECURITY.md).
+> **GPG-signed** `SHA256SUMS` (verify against the key in [`KEYS`](KEYS)) and a
+> GitHub build-provenance attestation (`gh attestation verify <installer> --repo
+> Rani367/lo`) — see [SECURITY.md](SECURITY.md).
 
 On first launch Lo downloads the speech and language models it needs (progress shows
 in the captions); they're cached for offline use afterward.

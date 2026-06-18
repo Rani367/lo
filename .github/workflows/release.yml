@@ -45,7 +45,7 @@ jobs:
           # - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu, label: linux-x64-vulkan, formats: "appimage", extra_features: "asr-vulkan" }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -135,6 +135,20 @@ jobs:
           fi
           sha256sum "${files[@]}" | tee SHA256SUMS
 
+      # Detached GPG signature over the checksum file — signing SHA256SUMS covers
+      # every platform's installer for free. Verify with the public key in /KEYS:
+      #   gpg --import KEYS && gpg --verify SHA256SUMS.asc SHA256SUMS
+      - name: GPG-sign the checksums
+        working-directory: dist
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes --armor --detach-sign --output SHA256SUMS.asc SHA256SUMS
+          gpg --batch --verify SHA256SUMS.asc SHA256SUMS
+          rm -rf "$GNUPGHOME"
+
       - name: Attest build provenance for every installer
         uses: actions/attest-build-provenance@v1
         with:
@@ -155,5 +169,6 @@ jobs:
             dist/*.deb
             dist/*.AppImage
             dist/SHA256SUMS
-          draft: true # review before publishing while unsigned
+            dist/SHA256SUMS.asc
+          draft: true # installers carry no OS code-signing cert yet — human-gate the publish
           generate_release_notes: true
