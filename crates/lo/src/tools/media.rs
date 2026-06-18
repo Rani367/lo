@@ -98,3 +98,27 @@ async fn run(program: &str, args: &[&str]) -> Result<(), String> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{label, normalize};
+
+    #[test]
+    fn normalize_maps_aliases_and_passes_through() {
+        assert_eq!(normalize("prev"), "previous");
+        assert_eq!(normalize("toggle"), "playpause");
+        assert_eq!(normalize("play"), "play");
+        assert_eq!(normalize("anything-else"), "anything-else");
+    }
+
+    #[test]
+    fn label_is_human_readable() {
+        assert_eq!(label("play"), "Playing");
+        assert_eq!(label("pause"), "Paused");
+        assert_eq!(label("playpause"), "Toggled playback");
+        assert_eq!(label("next"), "Skipped ahead");
+        assert_eq!(label("previous"), "Skipped back");
+        assert_eq!(label("stop"), "Stopped");
+        assert_eq!(label("bogus"), "Toggled playback"); // unknown ⇒ safe default
+    }
+}

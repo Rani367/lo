@@ -60,7 +60,9 @@ Download the installer for your platform from the
 
 > Release artifacts are currently **unsigned**. On macOS, right-click the app and
 > choose **Open** the first time (or run `xattr -dr com.apple.quarantine /Applications/Lo.app`).
-> On Windows, click through the SmartScreen prompt. See [SECURITY.md](SECURITY.md).
+> On Windows, click through the SmartScreen prompt. Each release ships a
+> `SHA256SUMS` file and a GitHub build-provenance attestation you can verify with
+> `gh attestation verify <installer> --repo Rani367/lo` — see [SECURITY.md](SECURITY.md).
 
 On first launch Lo downloads the speech and language models it needs (progress shows
 in the captions); they're cached for offline use afterward.
@@ -215,4 +217,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please run `cargo fmt --check`,
 
 ## License
 
-[MIT](LICENSE) © Rani367
+© 2026 Rani367. All rights reserved.
+
+Lo's source is published for viewing and reference only — it is **not** open
+source. You may read the code and run the official released builds for personal
+use, but copying, modifying, redistributing, or reusing it in other projects is
+not permitted without written permission. See [LICENSE](LICENSE) for the full
+terms.

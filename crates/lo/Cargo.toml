@@ -4,13 +4,23 @@ description = "Lo — a fast, local, pure-native Rust voice agent."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license-file.workspace = true
 authors.workspace = true
 repository.workspace = true
+homepage = "https://github.com/Rani367/lo"
+documentation = "https://github.com/Rani367/lo"
+readme = "../../README.md"
+keywords = ["voice", "assistant", "local", "whisper", "tts"]
+categories = ["command-line-utilities", "multimedia::audio", "accessibility"]
+# A desktop app distributed via the platform installers, not a crates.io library.
+publish = false
 
 [[bin]]
 name = "lo"
 path = "src/main.rs"
+
+[lints]
+workspace = true
 
 [dependencies]
 anyhow = "1.0.102"

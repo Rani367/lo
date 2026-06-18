@@ -1,0 +1,8 @@
+# Give every contributor (and CI) the same channel + the components the project's
+# checks need, so `cargo fmt`/`cargo clippy` work out of the box after a clone.
+# Tracks stable to match the CI workflows; the *minimum* supported Rust is the
+# separate `rust-version = "1.85"` in Cargo.toml (enforced by cargo, not pinned
+# here, so a newer stable's lints/features stay available).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

@@ -1,21 +1,50 @@
-MIT License
+Lo — Proprietary, Source-Available License
+Copyright (c) 2026 Rani367. All rights reserved.
 
-Copyright (c) 2026 Rani367
+The source code in this repository (the "Software") is made publicly available
+for viewing and reference ONLY. It is NOT open source and is NOT free software.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Permitted
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   a. You may view, read, and study the source code in this repository.
+   b. You may download and run the official prebuilt application binaries that
+      the copyright holder distributes (e.g. from the project's Releases page)
+      for your own personal, non-commercial use.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Not permitted (without the prior written permission of the copyright holder)
+
+   You may NOT:
+   a. copy, reproduce, or store the Software, except the transient copying that
+      is strictly necessary to view it in your browser or editor;
+   b. modify, adapt, translate, port, or create derivative works of the
+      Software, in whole or in part;
+   c. distribute, publish, mirror, sublicense, rent, lease, lend, sell, or
+      otherwise make the Software available to any third party;
+   d. incorporate the Software, or any portion of it, into any other software,
+      product, machine-learning training corpus, or project, whether commercial
+      or non-commercial;
+   e. remove, obscure, or alter this notice or any copyright notice.
+
+3. No license to intellectual property
+
+   No rights or licenses, express or implied, are granted under any patent,
+   trademark, copyright, or other intellectual-property right of the copyright
+   holder, except the limited permissions expressly stated in Section 1.
+
+4. Contributions
+
+   Unless agreed otherwise in writing, any contribution you intentionally submit
+   for inclusion in the Software may be used by the copyright holder under the
+   terms of this license, and you confirm you have the right to grant that use.
+
+5. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF,
+   OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+For permissions beyond the scope of this license, contact: rani2011367@gmail.com

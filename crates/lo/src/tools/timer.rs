@@ -64,3 +64,18 @@ fn plural(n: u64) -> &'static str {
         "s"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::format_duration;
+
+    #[test]
+    fn reads_naturally_across_boundaries() {
+        assert_eq!(format_duration(1), "1 second");
+        assert_eq!(format_duration(45), "45 seconds");
+        assert_eq!(format_duration(60), "1 minute");
+        assert_eq!(format_duration(120), "2 minutes");
+        assert_eq!(format_duration(125), "2 minutes 5 seconds");
+        assert_eq!(format_duration(3600), "60 minutes");
+    }
+}

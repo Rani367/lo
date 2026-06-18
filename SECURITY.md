@@ -39,3 +39,29 @@ choose **Open** the first time (or clear the quarantine attribute); on Windows,
 SmartScreen may warn before you can run the installer. Signing/notarization slots
 are wired into the release pipeline and can be enabled when certificates are
 available.
+
+### Verifying your download
+
+Even unsigned, every release is verifiable for free:
+
+- **Checksums.** Each release attaches a `SHA256SUMS` file. After downloading,
+  confirm the installer matches:
+
+  ```bash
+  # macOS / Linux (run in the folder with the installer + SHA256SUMS)
+  shasum -a 256 -c SHA256SUMS
+  ```
+
+  ```powershell
+  # Windows PowerShell
+  Get-FileHash .\Lo_1.0.0_x64-setup.exe -Algorithm SHA256
+  ```
+
+- **Build provenance.** Every installer carries a signed
+  [SLSA build-provenance attestation](https://docs.github.com/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds)
+  proving it was built by this repository's CI from this source. Verify it with
+  the GitHub CLI:
+
+  ```bash
+  gh attestation verify <installer> --repo Rani367/lo
+  ```

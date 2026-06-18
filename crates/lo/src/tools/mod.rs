@@ -205,3 +205,71 @@ async fn execute(
         other => Ok(format!("Error: unknown tool \"{other}\".")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// A live sender whose receiver is dropped — tools only `send` best-effort.
+    fn announce() -> UnboundedSender<String> {
+        tokio::sync::mpsc::unbounded_channel().0
+    }
+
+    fn settings_with_root(root: &Path) -> LoSettings {
+        let canon = std::fs::canonicalize(root).unwrap();
+        LoSettings {
+            allowed_fs_roots: vec![canon.to_string_lossy().into_owned()],
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn malformed_json_args_are_reported() {
+        let out = dispatch(
+            "get_datetime",
+            "{not json",
+            &LoSettings::default(),
+            &announce(),
+        )
+        .await;
+        assert!(out.contains("could not parse arguments"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn unknown_tool_is_reported() {
+        let out = dispatch("no_such_tool", "{}", &LoSettings::default(), &announce()).await;
+        assert!(out.contains("unknown tool"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn danger_tool_denied_without_power_user() {
+        let s = LoSettings {
+            power_user_mode: false,
+            ..Default::default()
+        };
+        let args = serde_json::json!({ "path": "x", "content": "y" }).to_string();
+        let out = dispatch("write_file", &args, &s, &announce()).await;
+        assert_eq!(out, lo_core::tools::POWER_USER_REQUIRED);
+    }
+
+    #[tokio::test]
+    async fn safe_read_through_dispatch_inside_sandbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let p = dir.path().join("hi.txt");
+        std::fs::write(&p, b"sandboxed hello").unwrap();
+        let args = serde_json::json!({ "path": p.to_string_lossy() }).to_string();
+        let out = dispatch("read_file", &args, &s, &announce()).await;
+        assert_eq!(out, "sandboxed hello");
+    }
+
+    #[tokio::test]
+    async fn read_through_dispatch_rejects_sandbox_escape() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let args = serde_json::json!({ "path": "../../etc/hosts" }).to_string();
+        let out = dispatch("read_file", &args, &s, &announce()).await;
+        assert!(out.starts_with("Error running read_file:"), "{out}");
+    }
+}

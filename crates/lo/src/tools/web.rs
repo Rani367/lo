@@ -361,4 +361,22 @@ mod tests {
         assert_eq!(urlencode("a b&c"), "a%20b%26c");
         assert_eq!(urlencode("safe-_.~"), "safe-_.~");
     }
+
+    #[test]
+    fn parse_http_accepts_only_http_schemes() {
+        assert!(parse_http("https://example.com/x").is_ok());
+        assert!(parse_http("  http://example.com  ").is_ok()); // trims whitespace
+        assert!(parse_http("ftp://example.com").is_err());
+        assert!(parse_http("file:///etc/passwd").is_err());
+        assert!(parse_http("not a url").is_err());
+    }
+
+    #[tokio::test]
+    async fn assert_public_host_rejects_literal_private_addresses() {
+        // The literal-host check short-circuits before any DNS lookup, so these
+        // are fully offline and deterministic.
+        assert!(assert_public_host("127.0.0.1").await.is_err()); // loopback
+        assert!(assert_public_host("169.254.169.254").await.is_err()); // cloud metadata
+        assert!(assert_public_host("10.0.0.1").await.is_err()); // private range
+    }
 }

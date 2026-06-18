@@ -17,11 +17,20 @@
 
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
+
+/// Lock a mutex, recovering the guard if a previous holder panicked. A poisoned
+/// engine/server lock is not fatal here — we only ever hold these briefly around
+/// synchronous bookkeeping (never across an `.await`), so the protected state
+/// stays coherent and crashing the whole app on poison would be worse than just
+/// carrying on. Mirrors the recovery the audio subsystem already uses.
+pub(super) fn lock_recover<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|p| p.into_inner())
+}
 
 /// Model loads (especially a first-run download) can be slow.
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(180);
@@ -106,17 +115,17 @@ impl Inner {
         ServerState::from_u8(self.state.load(Ordering::SeqCst))
     }
     fn set_error(&self, msg: Option<String>) {
-        *self.last_error.lock().expect("last_error poisoned") = msg;
+        *lock_recover(&self.last_error) = msg;
     }
     fn error(&self) -> Option<String> {
-        self.last_error.lock().expect("last_error poisoned").clone()
+        lock_recover(&self.last_error).clone()
     }
 
     /// Has the current child exited? Returns `Some(exit_detail)` on exit,
     /// `None` while still running (or no child). Reaps the handle on exit and
     /// updates state, distinguishing a deliberate stop from a crash.
     fn poll_exit(&self) -> Option<String> {
-        let mut guard = self.child.lock().expect("child poisoned");
+        let mut guard = lock_recover(&self.child);
         let exited = match guard.as_mut() {
             Some(child) => match child.try_wait() {
                 Ok(Some(status)) => Some(status_detail(&self.spec.name, Ok(status))),
@@ -185,7 +194,7 @@ impl ManagedServer {
 
     /// Is a child handle currently present (alive, not yet reaped)?
     fn has_child(&self) -> bool {
-        self.inner.child.lock().expect("child poisoned").is_some()
+        lock_recover(&self.inner.child).is_some()
     }
 
     /// Start (if needed) and resolve once the server reports healthy.
@@ -290,7 +299,7 @@ impl ManagedServer {
         }
 
         // Hand the child to the shared state.
-        *self.inner.child.lock().expect("child poisoned") = Some(child);
+        *lock_recover(&self.inner.child) = Some(child);
 
         // Poll /health until ready (or the child dies / we time out).
         self.wait_for_health().await
@@ -354,7 +363,7 @@ impl ManagedServer {
     /// the kill as intentional so the exit isn't recorded as a crash.
     pub fn stop(&self) {
         self.inner.intentional_stop.store(true, Ordering::SeqCst);
-        let mut guard = self.inner.child.lock().expect("child poisoned");
+        let mut guard = lock_recover(&self.inner.child);
         if let Some(child) = guard.as_mut() {
             let _ = child.start_kill();
         }
@@ -367,7 +376,7 @@ impl ManagedServer {
         self.inner.intentional_stop.store(true, Ordering::SeqCst);
         // Take the handle out so we can `kill().await` (SIGKILL + reap) without
         // holding the sync lock across the await.
-        let child = self.inner.child.lock().expect("child poisoned").take();
+        let child = lock_recover(&self.inner.child).take();
         if let Some(mut child) = child {
             let _ = child.kill().await;
         }

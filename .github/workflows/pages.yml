@@ -1,0 +1,40 @@
+# Publish the static landing page in `docs/` to GitHub Pages on every push to
+# main that touches it. One-time setup: in repo Settings → Pages, set the source
+# to "GitHub Actions" (or run `gh api -X POST repos/Rani367/lo/pages -f
+# build_type=workflow`) — until then this workflow has nothing to deploy to.
+# The site publishes to https://rani367.github.io/lo/.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+# Least privilege for the official Pages deploy actions.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one in-flight deployment; don't cancel a running one mid-publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -166,6 +166,11 @@ impl Vis {
 ///   112 spec: [vec4;4]   -> 176 bytes
 /// ```
 #[repr(C)]
+// The only `unsafe` in the binary: bytemuck's `Pod`/`Zeroable` derives expand to
+// `unsafe impl`s, sound here because `Uniforms` is `#[repr(C)]` plain-old-data
+// (all-`f32`, no padding holes, no invalid bit patterns). Allowed explicitly so
+// the workspace's `unsafe_code = "deny"` still catches any hand-written unsafe.
+#[allow(unsafe_code)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct Uniforms {
     /// Render-target resolution in physical pixels.

@@ -15,32 +15,25 @@ use sysinfo::{Disks, Networks, System};
 
 /// Render the requested telemetry as a single speakable line.
 pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
-    let kind = match kind {
-        "cpu" | "memory" | "disk" | "battery" | "network" | "all" => kind,
-        _ => "overview",
-    };
-    // Section selector: `all` matches everything; `overview` matches everything
-    // but network; otherwise only the exact kind.
-    let want = |k: &str| kind == "all" || kind == k || (kind == "overview" && k != "network");
+    let kind = normalize_kind(kind);
 
     let mut parts: Vec<String> = Vec::new();
-
-    if kind == "overview" || kind == "all" {
+    if section_wanted(kind, "host") {
         parts.push(host_line());
     }
-    if want("cpu") {
+    if section_wanted(kind, "cpu") {
         parts.push(cpu_line());
     }
-    if want("memory") {
+    if section_wanted(kind, "memory") {
         parts.push(memory_line());
     }
-    if want("disk") {
+    if section_wanted(kind, "disk") {
         parts.push(disk_line(settings));
     }
-    if want("battery") {
+    if section_wanted(kind, "battery") {
         parts.push(battery_line());
     }
-    if kind == "network" || kind == "all" {
+    if section_wanted(kind, "network") {
         parts.push(network_line());
     }
 
@@ -49,6 +42,26 @@ pub async fn system_info(kind: &str, settings: &LoSettings) -> String {
         .filter(|p| !p.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// Normalize the requested telemetry kind, defaulting anything unrecognized to
+/// `overview`.
+fn normalize_kind(kind: &str) -> &str {
+    match kind {
+        "cpu" | "memory" | "disk" | "battery" | "network" | "all" => kind,
+        _ => "overview",
+    }
+}
+
+/// Whether a normalized `kind` selects a given `section`. `all` → every section;
+/// `overview` → the host summary plus cpu/memory/disk/battery but NOT network;
+/// any specific kind → only the matching section.
+fn section_wanted(kind: &str, section: &str) -> bool {
+    match kind {
+        "all" => true,
+        "overview" => section != "network",
+        specific => specific == section,
+    }
 }
 
 /// `Host {name} — {os} {release} ({arch}), up {uptime}.`
@@ -191,5 +204,46 @@ fn uptime(secs: u64) -> String {
         format!("{h}h {m}m")
     } else {
         format!("{m}m")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_kind, section_wanted, uptime};
+
+    #[test]
+    fn normalize_kind_defaults_unknown_to_overview() {
+        assert_eq!(normalize_kind("cpu"), "cpu");
+        assert_eq!(normalize_kind("all"), "all");
+        assert_eq!(normalize_kind("network"), "network");
+        assert_eq!(normalize_kind("bogus"), "overview");
+        assert_eq!(normalize_kind(""), "overview");
+    }
+
+    #[test]
+    fn overview_excludes_network_all_includes_it() {
+        for s in ["host", "cpu", "memory", "disk", "battery"] {
+            assert!(section_wanted("overview", s), "overview should include {s}");
+            assert!(section_wanted("all", s), "all should include {s}");
+        }
+        assert!(!section_wanted("overview", "network"));
+        assert!(section_wanted("all", "network"));
+    }
+
+    #[test]
+    fn specific_kind_selects_only_itself() {
+        assert!(section_wanted("cpu", "cpu"));
+        assert!(!section_wanted("cpu", "memory"));
+        assert!(!section_wanted("cpu", "host"));
+        assert!(section_wanted("network", "network"));
+        assert!(!section_wanted("network", "host"));
+    }
+
+    #[test]
+    fn uptime_formats_hours_and_minutes() {
+        assert_eq!(uptime(0), "0m");
+        assert_eq!(uptime(59), "0m");
+        assert_eq!(uptime(600), "10m");
+        assert_eq!(uptime(3_661), "1h 1m");
     }
 }

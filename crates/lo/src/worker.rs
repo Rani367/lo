@@ -41,9 +41,15 @@ struct TtsMsg {
     epoch: u64,
 }
 
-pub async fn run(mut ctx: WorkerCtx) {
+pub async fn run(ctx: WorkerCtx) {
+    let WorkerCtx {
+        mut ui_rx,
+        proxy,
+        settings,
+        audio,
+        epoch_rx,
+    } = ctx;
     let engine = Engine::new();
-    let settings = ctx.settings;
 
     // tools (e.g. set_timer) push announcements here.
     let (announce_tx, mut announce_rx) = unbounded_channel::<String>();
@@ -52,8 +58,8 @@ pub async fn run(mut ctx: WorkerCtx) {
 
     // TTS thread (owns the !Send Kokoro engine, loaded lazily).
     {
-        let audio = ctx.audio.clone();
-        let epoch_rx = ctx.epoch_rx.clone();
+        let audio = audio.clone();
+        let epoch_rx = epoch_rx.clone();
         let model = settings.tts_model.clone();
         let voice = settings.voice.clone();
         let _ = std::thread::Builder::new()
@@ -63,10 +69,10 @@ pub async fn run(mut ctx: WorkerCtx) {
 
     // Announcement drainer: surface it as a caption AND speak it.
     {
-        let proxy = ctx.proxy.clone();
+        let proxy = proxy.clone();
         let tts_tx = tts_tx.clone();
         let speed = settings.speech_rate as f32;
-        let epoch_rx = ctx.epoch_rx.clone();
+        let epoch_rx = epoch_rx.clone();
         tokio::spawn(async move {
             while let Some(text) = announce_rx.recv().await {
                 let _ = proxy.send_event(AppEvent::Announce(text.clone()));
@@ -86,7 +92,7 @@ pub async fn run(mut ctx: WorkerCtx) {
     // ModelDownload) so the first real turn isn't gated on model load. It is
     // idempotent — `handle_turn` re-checks readiness with a fast health poll.
     {
-        let p = ctx.proxy.clone();
+        let p = proxy.clone();
         let prog = move |label: &str, pct: Option<u8>| {
             let _ = p.send_event(AppEvent::ModelDownload {
                 label: label.to_string(),
@@ -95,42 +101,41 @@ pub async fn run(mut ctx: WorkerCtx) {
         };
         match engine.ensure_ready(&settings, Some(&prog)).await {
             Ok(()) => {
-                let _ = ctx
-                    .proxy
-                    .send_event(AppEvent::ServerStatus(engine.status(&settings)));
+                let _ = proxy.send_event(AppEvent::ServerStatus(engine.status(&settings)));
             }
             Err(e) => tracing::warn!("engine prewarm failed (will retry on first turn): {e:#}"),
         }
     }
 
-    while let Some(cmd) = ctx.ui_rx.recv().await {
+    // The worker-lifetime context shared by every turn; per-turn args (turn_id,
+    // history, epoch) are passed separately to `handle_turn`.
+    let turn_cx = TurnCtx {
+        engine: &engine,
+        settings: &settings,
+        proxy: &proxy,
+        announce_tx: &announce_tx,
+        tts_tx: &tts_tx,
+    };
+
+    while let Some(cmd) = ui_rx.recv().await {
         match cmd {
             UiCommand::StartTurn {
                 turn_id,
                 history,
                 epoch,
             } => {
-                let mut erx = ctx.epoch_rx.clone();
-                let turn = handle_turn(
-                    &engine,
-                    &settings,
-                    &ctx.proxy,
-                    &announce_tx,
-                    &tts_tx,
-                    &turn_id,
-                    &history,
-                    epoch,
-                );
+                let mut erx = epoch_rx.clone();
+                let turn = handle_turn(&turn_cx, &turn_id, &history, epoch);
                 tokio::select! {
                     res = turn => {
                         let result = match res {
                             Ok(r) => r,
                             Err(e) => {
-                                let _ = ctx.proxy.send_event(AppEvent::Error(format!("{e:#}")));
+                                let _ = proxy.send_event(AppEvent::Error(format!("{e:#}")));
                                 ChatTurnResult { turn_id: turn_id.clone(), reply: EMPTY_REPLY_FALLBACK.to_string(), ..Default::default() }
                             }
                         };
-                        let _ = ctx.proxy.send_event(AppEvent::LlmDone { turn_id: turn_id.clone(), result });
+                        let _ = proxy.send_event(AppEvent::LlmDone { turn_id: turn_id.clone(), result });
                     }
                     _ = wait_epoch_change(&mut erx, epoch) => {
                         tracing::debug!("turn {turn_id} cancelled (barge-in)");
@@ -147,43 +152,51 @@ pub async fn run(mut ctx: WorkerCtx) {
     engine.stop();
 }
 
-#[allow(clippy::too_many_arguments)]
+/// The worker-lifetime borrows shared across every turn. Grouping them keeps
+/// `handle_turn`'s signature to the three per-turn arguments (turn_id, history,
+/// epoch) instead of eight positional params.
+struct TurnCtx<'a> {
+    engine: &'a Engine,
+    settings: &'a LoSettings,
+    proxy: &'a EventLoopProxy<AppEvent>,
+    announce_tx: &'a UnboundedSender<String>,
+    tts_tx: &'a StdSender<TtsMsg>,
+}
+
 async fn handle_turn(
-    engine: &Engine,
-    settings: &LoSettings,
-    proxy: &EventLoopProxy<AppEvent>,
-    announce_tx: &UnboundedSender<String>,
-    tts_tx: &StdSender<TtsMsg>,
+    cx: &TurnCtx<'_>,
     turn_id: &str,
     history: &[ChatMessage],
     epoch: u64,
 ) -> anyhow::Result<ChatTurnResult> {
     // Ensure the engine is up (downloads on first run report via ModelDownload).
     {
-        let p = proxy.clone();
+        let p = cx.proxy.clone();
         let prog = move |label: &str, pct: Option<u8>| {
             let _ = p.send_event(AppEvent::ModelDownload {
                 label: label.to_string(),
                 pct,
             });
         };
-        engine.ensure_ready(settings, Some(&prog)).await?;
+        cx.engine.ensure_ready(cx.settings, Some(&prog)).await?;
     }
     // Surface engine health to the HUD status dot.
-    let _ = proxy.send_event(AppEvent::ServerStatus(engine.status(settings)));
+    let _ = cx
+        .proxy
+        .send_event(AppEvent::ServerStatus(cx.engine.status(cx.settings)));
 
-    let endpoint = engine.endpoint(settings);
+    let endpoint = cx.engine.endpoint(cx.settings);
     let now = crate::tools::datetime_context();
-    let mut convo = initial_convo_with_time(settings, history, Some(&now));
+    let mut convo = initial_convo_with_time(cx.settings, history, Some(&now));
     let mut tools_invoked: Vec<String> = Vec::new();
     let mut used_web = false;
     let mut final_text = String::new();
 
-    let sampling = Sampling::from_settings(settings);
+    let sampling = Sampling::from_settings(cx.settings);
     for _round in 0..MAX_ROUNDS {
         let body = build_request_body(&endpoint.model_id, &convo, sampling);
         let (text, calls) = {
-            let p = proxy.clone();
+            let p = cx.proxy.clone();
             let tid = turn_id.to_string();
             let mut on_delta = move |d: &str| {
                 let _ = p.send_event(AppEvent::LlmDelta {
@@ -201,7 +214,7 @@ async fn handle_turn(
 
         let mut results = Vec::with_capacity(calls.len());
         for call in &calls {
-            let _ = proxy.send_event(AppEvent::LlmTool {
+            let _ = cx.proxy.send_event(AppEvent::LlmTool {
                 turn_id: turn_id.to_string(),
                 tool: call.function.name.clone(),
                 status: ToolStatus::Start,
@@ -210,15 +223,15 @@ async fn handle_turn(
             let res = tools::dispatch(
                 &call.function.name,
                 &call.function.arguments,
-                settings,
-                announce_tx,
+                cx.settings,
+                cx.announce_tx,
             )
             .await;
             tools_invoked.push(call.function.name.clone());
             if call.function.name == "web_search" {
                 used_web = true;
             }
-            let _ = proxy.send_event(AppEvent::LlmTool {
+            let _ = cx.proxy.send_event(AppEvent::LlmTool {
                 turn_id: turn_id.to_string(),
                 tool: call.function.name.clone(),
                 status: ToolStatus::Done,
@@ -235,9 +248,9 @@ async fn handle_turn(
 
     // Speak the reply: chunk → TTS thread → gapless playback ring.
     for chunk in chunk_for_tts_default(&strip_directives(&final_text)) {
-        let _ = tts_tx.send(TtsMsg {
+        let _ = cx.tts_tx.send(TtsMsg {
             text: chunk,
-            speed: settings.speech_rate as f32,
+            speed: cx.settings.speech_rate as f32,
             epoch,
         });
     }

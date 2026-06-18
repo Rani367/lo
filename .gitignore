@@ -12,3 +12,10 @@
 
 # OS cruft
 .DS_Store
+
+# Local maintenance scripts (not part of the published project)
+/scripts/
+
+# Fallback app data dir when no HOME is resolvable (e.g. tests in a bare shell)
+/.lo/
+.lo/

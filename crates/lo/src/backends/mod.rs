@@ -25,7 +25,7 @@ use lo_core::config::paths::cache_dir;
 use lo_core::types::{BackendKind, LocalStatus};
 use lo_core::LoSettings;
 
-use managed_server::{CommandSpec, ManagedServer, ServerSpec, ServerState};
+use managed_server::{lock_recover, CommandSpec, ManagedServer, ServerSpec, ServerState};
 
 /// Progress callback type for first-run downloads: `(label, pct)`, `pct == None`
 /// while indeterminate. Threaded through to [`download`].
@@ -107,7 +107,7 @@ impl Engine {
     /// Stop the active managed server (no-op for the unmanaged backends — they're
     /// not ours to stop).
     pub fn stop(&self) {
-        if let Some(active) = self.active.lock().expect("active poisoned").as_ref() {
+        if let Some(active) = lock_recover(&self.active).as_ref() {
             active.server.stop();
         }
     }
@@ -153,7 +153,7 @@ impl Engine {
     /// kind. A kind change stops the prior server first, so a settings flip never
     /// leaves two engines contending for the port.
     fn managed_for(&self, kind: BackendKind, settings: &LoSettings) -> ManagedServer {
-        let mut guard = self.active.lock().expect("active poisoned");
+        let mut guard = lock_recover(&self.active);
         if let Some(active) = guard.as_ref() {
             if active.kind == kind {
                 return active.server.handle();
@@ -248,7 +248,7 @@ impl Engine {
     }
 
     fn set_unmanaged(&self, state: ServerState, err: Option<String>) {
-        let mut u = self.unmanaged.lock().expect("unmanaged poisoned");
+        let mut u = lock_recover(&self.unmanaged);
         u.state = Some(state);
         u.last_error = err;
     }
@@ -257,7 +257,7 @@ impl Engine {
     fn current_state(&self, kind: BackendKind) -> (ServerState, Option<String>) {
         match kind {
             BackendKind::Mlx | BackendKind::Llama => {
-                let guard = self.active.lock().expect("active poisoned");
+                let guard = lock_recover(&self.active);
                 match guard.as_ref() {
                     Some(active) if active.kind == kind => {
                         (active.server.state(), active.server.last_error())
@@ -266,7 +266,7 @@ impl Engine {
                 }
             }
             BackendKind::Ollama | BackendKind::Custom => {
-                let u = self.unmanaged.lock().expect("unmanaged poisoned");
+                let u = lock_recover(&self.unmanaged);
                 (u.state.unwrap_or(ServerState::Idle), u.last_error.clone())
             }
         }

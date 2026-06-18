@@ -272,4 +272,120 @@ mod tests {
         let res = copy_file(&s, src.to_str().unwrap(), "../escape.txt").await;
         assert!(res.is_err());
     }
+
+    #[tokio::test]
+    async fn write_then_read_roundtrips() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let p = dir.path().join("note.txt");
+        let w = write_file(&s, p.to_str().unwrap(), "hello world", false).await;
+        assert!(w.is_ok(), "{w:?}");
+        assert_eq!(
+            read_file(&s, p.to_str().unwrap()).await.unwrap(),
+            "hello world"
+        );
+    }
+
+    #[tokio::test]
+    async fn write_file_refuses_existing_without_overwrite() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let p = dir.path().join("note.txt");
+        std::fs::write(&p, b"old").unwrap();
+        assert!(write_file(&s, p.to_str().unwrap(), "new", false)
+            .await
+            .is_err());
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "old"); // untouched
+                                                                 // With overwrite it replaces.
+        assert!(write_file(&s, p.to_str().unwrap(), "new", true)
+            .await
+            .is_ok());
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "new");
+    }
+
+    #[tokio::test]
+    async fn write_file_creates_parent_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let p = dir.path().join("a/b/c.txt");
+        assert!(write_file(&s, p.to_str().unwrap(), "x", false)
+            .await
+            .is_ok());
+        assert!(p.exists());
+    }
+
+    #[tokio::test]
+    async fn read_file_rejects_binary() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let p = dir.path().join("blob.bin");
+        std::fs::write(&p, [b'h', b'i', 0, 0xFF, 0xFE]).unwrap(); // NUL byte ⇒ binary
+        assert!(read_file(&s, p.to_str().unwrap()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn list_dir_marks_dirs_and_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        std::fs::write(dir.path().join("file.txt"), b"x").unwrap();
+        std::fs::create_dir(dir.path().join("folder")).unwrap();
+        let out = list_dir(&s, dir.path().to_str().unwrap()).await.unwrap();
+        assert!(out.contains("- file.txt"), "{out}");
+        assert!(out.contains("d folder"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn search_files_matches_by_name_and_skips_dotfiles() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        std::fs::write(dir.path().join("report.md"), b"x").unwrap();
+        std::fs::write(dir.path().join(".hidden_report"), b"x").unwrap();
+        let out = search_files(&s, dir.path().to_str().unwrap(), "report")
+            .await
+            .unwrap();
+        assert!(out.contains("report.md"), "{out}");
+        assert!(!out.contains(".hidden_report"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn move_path_renames_within_sandbox() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let src = dir.path().join("a.txt");
+        std::fs::write(&src, b"data").unwrap();
+        let dst = dir.path().join("renamed/b.txt");
+        assert!(move_path(&s, src.to_str().unwrap(), dst.to_str().unwrap())
+            .await
+            .is_ok());
+        assert!(!src.exists());
+        assert_eq!(std::fs::read_to_string(&dst).unwrap(), "data");
+    }
+
+    #[tokio::test]
+    async fn delete_path_removes_file_and_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        let f = dir.path().join("gone.txt");
+        std::fs::write(&f, b"x").unwrap();
+        assert!(delete_path(&s, f.to_str().unwrap()).await.is_ok());
+        assert!(!f.exists());
+        let sub = dir.path().join("subdir");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("inner.txt"), b"x").unwrap();
+        assert!(delete_path(&s, sub.to_str().unwrap()).await.is_ok());
+        assert!(!sub.exists());
+    }
+
+    #[tokio::test]
+    async fn write_move_delete_reject_escapes() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = settings_with_root(dir.path());
+        assert!(write_file(&s, "../escape.txt", "x", true).await.is_err());
+        let inside = dir.path().join("a.txt");
+        std::fs::write(&inside, b"x").unwrap();
+        assert!(move_path(&s, inside.to_str().unwrap(), "../escape.txt")
+            .await
+            .is_err());
+        assert!(delete_path(&s, "../../etc/hosts").await.is_err());
+    }
 }

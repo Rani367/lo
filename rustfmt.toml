@@ -1,0 +1,5 @@
+# Stable-channel rustfmt only — every option here works on stable so
+# `cargo fmt --check` is reproducible in CI. (Style-shaping options like
+# `imports_granularity` / `group_imports` are nightly-gated and deliberately
+# omitted so formatting never depends on a nightly toolchain.)
+edition = "2021"
