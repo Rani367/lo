@@ -53,9 +53,12 @@ Download the installer for your platform from the
 
 | Platform | Artifact |
 |---|---|
-| macOS (Apple Silicon / Intel) | `.dmg` (Metal + CoreML acceleration baked in) |
-| Windows | `.msi` or `-setup.exe` |
-| Linux | `.deb` or `.AppImage` |
+| macOS (Apple Silicon) | `.dmg` (Metal + CoreML acceleration baked in) |
+| Windows (x64) | `.msi` or `-setup.exe` |
+| Linux (x64) | `.deb` or `.AppImage` |
+
+> Intel Macs and older Linux distributions aren't covered by the prebuilt
+> installers — [build from source](#build-from-source) instead.
 
 > Release artifacts are currently **unsigned**. On macOS, right-click the app and
 > choose **Open** the first time (or run `xattr -dr com.apple.quarantine /Applications/Lo.app`).
@@ -256,7 +259,7 @@ cargo packager --release -f wix,nsis         # Windows
 ```
 
 Tagging `vX.Y.Z` runs `.github/workflows/release.yml`, which builds and packages on
-macOS (arm64 + x64), Windows, and Linux and uploads the installers to a draft GitHub
+macOS (Apple Silicon), Windows, and Linux and uploads the installers to a draft GitHub
 Release. Artifacts are unsigned until the signing secrets (`APPLE_*`,
 `WINDOWS_CERT_THUMBPRINT`) are filled in; the slots are already wired in the workflow
 and `crates/lo/Cargo.toml`.

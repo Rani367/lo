@@ -28,9 +28,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS bakes in Metal + CoreML (free, no user-side deps), both arches.
+          # macOS bakes in Metal + CoreML (free, no user-side deps). Apple Silicon
+          # only: GitHub's free Intel (macos-13) runners are too scarce to gate a
+          # release on, and Intel Macs are a small minority — those users build
+          # from source.
           - { os: macos-14, target: aarch64-apple-darwin, label: macos-arm64, formats: "dmg", extra_features: "" }
-          - { os: macos-13, target: x86_64-apple-darwin, label: macos-x64, formats: "dmg", extra_features: "" }
           # Windows + Linux default to CPU whisper (portable, no GPU-driver risk).
           - { os: windows-latest, target: x86_64-pc-windows-msvc, label: windows-x64, formats: "wix,nsis", extra_features: "" }
           # ubuntu-24.04: matches CI's green `ml-build` env. 22.04's PipeWire dev
