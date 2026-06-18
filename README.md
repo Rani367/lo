@@ -26,20 +26,19 @@ device.
 
 ## How it works
 
-```
-            ┌──────────────── your voice ────────────────┐
-            ▼                                             │
-   cpal capture → Silero VAD ──► Whisper ASR ──► transcript
-                                                     │
-                                                     ▼
-                              local LLM (MLX / llama.cpp / Ollama / custom)
-                                  streaming reply + native tool calls
-                                                     │
-                          ┌──────────────────────────┴───────────┐
-                          ▼                                       ▼
-                    22 OS tools (gated)                   Kokoro TTS → cpal playback
-                                                                   │
-                                                          the "living core" orb
+```mermaid
+flowchart TD
+    voice(["your voice"]) --> capture["cpal capture"]
+    capture --> vad["Silero VAD"]
+    vad --> asr["Whisper ASR"]
+    asr --> transcript["transcript"]
+    transcript --> llm["local LLM — MLX / llama.cpp / Ollama / custom<br/>streaming reply + native tool calls"]
+    llm --> tools["22 OS tools (gated)"]
+    llm --> tts["Kokoro TTS"]
+    tts --> playback["cpal playback"]
+    playback --> orb(["the living-core orb"])
+    tools -. tool results .-> llm
+    orb -. you reply .-> voice
 ```
 
 The brain is any OpenAI-compatible server: Lo can launch and supervise
