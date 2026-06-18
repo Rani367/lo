@@ -33,10 +33,14 @@ jobs:
           - { os: macos-13, target: x86_64-apple-darwin, label: macos-x64, formats: "dmg", extra_features: "" }
           # Windows + Linux default to CPU whisper (portable, no GPU-driver risk).
           - { os: windows-latest, target: x86_64-pc-windows-msvc, label: windows-x64, formats: "wix,nsis", extra_features: "" }
-          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, label: linux-x64, formats: "deb,appimage", extra_features: "" }
+          # ubuntu-24.04: matches CI's green `ml-build` env. 22.04's PipeWire dev
+          # headers are too old for the `libspa` crate (xcap's Wayland capture),
+          # which fails to compile there. Trade-off: the .deb/AppImage link the
+          # 24.04 glibc, so very old distros should build from source instead.
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu, label: linux-x64, formats: "deb,appimage", extra_features: "" }
           # Optional GPU artifacts (uncomment + add the SDK step to ship them):
           # - { os: windows-latest, target: x86_64-pc-windows-msvc, label: windows-x64-vulkan, formats: "wix,nsis", extra_features: "asr-vulkan" }
-          # - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, label: linux-x64-vulkan, formats: "appimage", extra_features: "asr-vulkan" }
+          # - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu, label: linux-x64-vulkan, formats: "appimage", extra_features: "asr-vulkan" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
