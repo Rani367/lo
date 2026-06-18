@@ -283,10 +283,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Please run `cargo fmt --check`,
 
 ## License
 
-© 2026 Rani367. All rights reserved.
-
-Lo's source is published for viewing and reference only — it is **not** open
-source. You may read the code and run the official released builds for personal
-use, but copying, modifying, redistributing, or reusing it in other projects is
-not permitted without written permission. See [LICENSE](LICENSE) for the full
-terms.
+[MIT](LICENSE) © Rani367

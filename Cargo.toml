@@ -15,9 +15,7 @@ version = "1.0.0"
 edition = "2021"
 # rubato (1.85) and sysinfo (0.39) set the floor; pin the whole workspace here.
 rust-version = "1.85"
-# Proprietary, source-available (read-only) — see the LICENSE file. Not an SPDX
-# `license` id; both crates are `publish = false`, so crates.io never sees this.
-license-file = "LICENSE"
+license = "MIT"
 authors = ["Rani367 <rani2011367@gmail.com>"]
 repository = "https://github.com/Rani367/lo"
 

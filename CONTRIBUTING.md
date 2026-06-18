@@ -1,12 +1,9 @@
 # Contributing to Lo
 
 Thanks for your interest in Lo! This is a pure-native Rust desktop voice agent.
-Bug reports and discussion are welcome via Issues.
-
-> **Note on licensing.** Lo's source is published for viewing and reference only
-> and is **not** open source (see [LICENSE](LICENSE)). By proposing a change you
-> agree the copyright holder may use it under those terms; reuse of the code in
-> other projects is not permitted.
+Contributions of all kinds (bug reports, fixes, features, docs) are welcome. Lo is
+MIT-licensed; by contributing you agree your work is provided under the same
+[license](LICENSE).
 
 ## Project layout
 
