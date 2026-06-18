@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lo — a fully-local voice agent in pure Rust</title>
+  <meta name="description" content="Lo is a fast, fully-local voice agent — pure-native Rust. It listens, thinks, and speaks entirely on your own machine, runs real OS tools, and shows a living orb that breathes with the conversation. No cloud, no webview, no Python." />
+  <meta name="theme-color" content="#0A070F" />
+
+  <!-- Open Graph / social -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Lo — a fully-local voice agent in pure Rust" />
+  <meta property="og:description" content="It listens, thinks, and speaks entirely on your own machine. No cloud, no webview, no Python." />
+  <meta property="og:image" content="orb.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,360;0,9..144,460;0,9..144,560;1,9..144,400;1,9..144,500&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Living-core orb: a live WebGL2 port of the app's real shader. -->
+  <canvas id="orb" aria-hidden="true"></canvas>
+  <div id="veil" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header" id="siteHeader">
+    <a class="wordmark" href="#top" aria-label="Lo — home">
+      <span class="wordmark__dot" aria-hidden="true"></span>lo
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="#idea">Why</a>
+      <a href="#how">How it works</a>
+      <a href="#tools">Tools</a>
+      <a href="#install">Install</a>
+    </nav>
+    <div class="site-header__cta">
+      <a class="btn btn--ghost btn--sm" href="https://github.com/Rani367/lo" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="btn btn--solid btn--sm" href="https://github.com/Rani367/lo/releases">Download</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ───────────────────────── HERO ───────────────────────── -->
+    <section class="hero" id="top" data-state="idle">
+      <div class="hero__inner">
+        <p class="eyebrow" data-reveal>Local-first voice agent · Pure-native Rust</p>
+        <h1 class="hero__title" data-reveal>
+          A voice agent that<br />
+          <em>never leaves</em> your machine.
+        </h1>
+        <p class="hero__sub" data-reveal>
+          Lo listens, thinks, and speaks entirely on your own device — speech recognition,
+          a local language model, and text-to-speech, with no cloud, no webview, and no
+          Python. Talk hands-free; it answers out loud and runs real tools on your computer.
+        </p>
+        <div class="hero__actions" data-reveal>
+          <a class="btn btn--solid" href="https://github.com/Rani367/lo/releases">
+            Download for macOS, Windows &amp; Linux
+          </a>
+          <a class="btn btn--ghost" href="https://github.com/Rani367/lo" target="_blank" rel="noopener">
+            View the source
+          </a>
+        </div>
+        <p class="hero__platforms" data-reveal>macOS · Windows · Linux — one small native binary</p>
+      </div>
+
+      <!-- The app's own live captions: dim grotesk "you", warm serif "Lo". -->
+      <div class="captions" id="captions" aria-hidden="true">
+        <p class="captions__you" id="capYou"></p>
+        <p class="captions__lo" id="capLo"></p>
+      </div>
+
+      <div class="hero__hint" aria-hidden="true">
+        hands-free, or hold <kbd>Space</kbd> to talk
+      </div>
+    </section>
+
+    <!-- ───────────────────────── THE IDEA ───────────────────────── -->
+    <section class="band idea" id="idea" data-state="idle">
+      <p class="eyebrow eyebrow--center" data-reveal>Why Lo</p>
+      <p class="statement" data-reveal>
+        Speech goes in. Speech comes out. The model that thinks in
+        between runs on <em>your</em> hardware — so nothing you say is
+        ever sent anywhere.
+      </p>
+      <p class="statement__foot" data-reveal>
+        No API keys. No telemetry. No network round-trips for the core loop. Just a single
+        binary that wakes up, listens, and gets things done.
+      </p>
+    </section>
+
+    <!-- ───────────────────────── FEATURES ───────────────────────── -->
+    <section class="band features" id="features" data-state="idle">
+      <header class="band__head">
+        <p class="eyebrow" data-reveal>What it is</p>
+        <h2 class="band__title" data-reveal>Small, private, and genuinely useful.</h2>
+      </header>
+
+      <div class="feature-grid">
+        <article class="feature feature--wide" data-reveal>
+          <p class="feature__kicker"><span class="dot dot--violet"></span>Private by design</p>
+          <h3 class="feature__title">Everything runs on-device.</h3>
+          <p class="feature__body">
+            Whisper for speech-to-text (GPU-accelerated per platform), Kokoro for speech,
+            Silero for voice-activity detection, and a local LLM for the thinking. The whole
+            loop happens on your machine — your voice never touches the network.
+          </p>
+        </article>
+
+        <article class="feature" data-reveal>
+          <p class="feature__kicker"><span class="dot dot--coral"></span>Conversation</p>
+          <h3 class="feature__title">Hands-free, or push-to-talk.</h3>
+          <p class="feature__body">
+            Just start talking; Lo detects when your sentence ends and replies. Or hold
+            <kbd>Space</kbd> at any time — it will even interrupt itself mid-reply.
+          </p>
+        </article>
+
+        <article class="feature" data-reveal>
+          <p class="feature__kicker"><span class="dot dot--rose"></span>Real actions</p>
+          <h3 class="feature__title">It can actually do things.</h3>
+          <p class="feature__body">
+            22 OS-level tools — web search, files, shell, apps, media, clipboard,
+            screenshots, timers — so Lo doesn't just answer, it acts.
+          </p>
+        </article>
+
+        <article class="feature" data-reveal>
+          <p class="feature__kicker"><span class="dot dot--peach"></span>Pure Rust</p>
+          <h3 class="feature__title">One small native binary.</h3>
+          <p class="feature__body">
+            <code>winit</code> + <code>wgpu</code> for the UI, <code>cpal</code> for audio,
+            all of the ML in Rust. No bundled browser, no sidecar processes.
+          </p>
+        </article>
+
+        <article class="feature" data-reveal>
+          <p class="feature__kicker"><span class="dot dot--indigo"></span>Guarded</p>
+          <h3 class="feature__title">Safety, in tiers.</h3>
+          <p class="feature__body">
+            Safe tools run instantly. Anything that writes, deletes, or runs a command needs
+            power-user mode and is written to an audit log. Files stay sandboxed; the web is
+            guarded against SSRF.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── HOW IT WORKS ───────────────────────── -->
+    <section class="band how" id="how" data-state="thinking">
+      <header class="band__head">
+        <p class="eyebrow" data-reveal>The loop</p>
+        <h2 class="band__title" data-reveal>From your voice to action and back — locally.</h2>
+      </header>
+
+      <ol class="pipeline" data-reveal>
+        <li class="step">
+          <span class="step__n">01</span>
+          <h3 class="step__title">Capture</h3>
+          <p class="step__desc"><code>cpal</code> listens to your microphone in real time.</p>
+        </li>
+        <li class="step">
+          <span class="step__n">02</span>
+          <h3 class="step__title">Detect</h3>
+          <p class="step__desc">Silero VAD finds where your speech starts and ends.</p>
+        </li>
+        <li class="step">
+          <span class="step__n">03</span>
+          <h3 class="step__title">Transcribe</h3>
+          <p class="step__desc">Whisper turns the audio into text on the GPU.</p>
+        </li>
+        <li class="step">
+          <span class="step__n">04</span>
+          <h3 class="step__title">Think</h3>
+          <p class="step__desc">A local LLM streams a reply and decides which tools to call.</p>
+        </li>
+        <li class="step step--final">
+          <span class="step__n">05</span>
+          <h3 class="step__title">Act &amp; speak</h3>
+          <p class="step__desc">Tools run; Kokoro speaks the reply; the orb breathes along.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ───────────────────────── TOOLS ───────────────────────── -->
+    <section class="band tools" id="tools" data-state="listening">
+      <header class="band__head">
+        <p class="eyebrow" data-reveal>Capabilities</p>
+        <h2 class="band__title" data-reveal>22 tools, behind three tiers of trust.</h2>
+        <p class="band__lede" data-reveal>
+          Safe tools run the moment Lo asks. Everything that can change your system waits
+          behind power-user mode and lands in an audit log.
+        </p>
+      </header>
+
+      <div class="tier-grid">
+        <section class="tier tier--safe" data-reveal>
+          <header class="tier__head">
+            <h3 class="tier__name">Safe</h3>
+            <span class="tier__count">15 tools</span>
+          </header>
+          <p class="tier__note">Run immediately — read-only or easily reversible.</p>
+          <ul class="chips">
+            <li>web_search</li><li>fetch_url</li><li>get_datetime</li><li>system_info</li>
+            <li>open_app</li><li>focus_app</li><li>set_volume</li><li>media_control</li>
+            <li>set_timer</li><li>take_screenshot</li><li>read_clipboard</li>
+            <li>write_clipboard</li><li>read_file</li><li>list_dir</li><li>search_files</li>
+          </ul>
+        </section>
+
+        <section class="tier tier--confirm" data-reveal>
+          <header class="tier__head">
+            <h3 class="tier__name">Confirm</h3>
+            <span class="tier__count">2 tools</span>
+          </header>
+          <p class="tier__note">Need power-user mode. Audited.</p>
+          <ul class="chips">
+            <li>quit_app</li><li>open_path</li>
+          </ul>
+        </section>
+
+        <section class="tier tier--danger" data-reveal>
+          <header class="tier__head">
+            <h3 class="tier__name">Danger</h3>
+            <span class="tier__count">5 tools</span>
+          </header>
+          <p class="tier__note">Write, delete, or run. Gated and audit-logged.</p>
+          <ul class="chips">
+            <li>write_file</li><li>move_path</li><li>copy_file</li><li>delete_path</li>
+            <li>run_command</li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── THE BRAIN ───────────────────────── -->
+    <section class="band brain" id="brain" data-state="thinking">
+      <header class="band__head">
+        <p class="eyebrow" data-reveal>The brain</p>
+        <h2 class="band__title" data-reveal>It sizes the model to your machine.</h2>
+        <p class="band__lede" data-reveal>
+          Lo reads your RAM and picks the right model tier automatically — a nimble 4B on a
+          laptop, up to a 30B mixture-of-experts on a workstation. Or point it at your own
+          server and bring any model you like.
+        </p>
+      </header>
+
+      <div class="tiers-scale" data-reveal>
+        <div class="scale-track">
+          <span class="scale-node">Qwen3 4B</span>
+          <span class="scale-node">8B</span>
+          <span class="scale-node">14B</span>
+          <span class="scale-node">30B-A3B</span>
+        </div>
+        <p class="scale-caption">auto-tuned by available memory</p>
+      </div>
+
+      <ul class="backends" data-reveal>
+        <li><span class="backends__k">MLX</span> Apple Silicon · Metal + CoreML</li>
+        <li><span class="backends__k">llama.cpp</span> CUDA · Vulkan · ROCm · DirectML</li>
+        <li><span class="backends__k">Ollama</span> local models, one tag away</li>
+        <li><span class="backends__k">Custom</span> any OpenAI-compatible URL</li>
+      </ul>
+    </section>
+
+    <!-- ───────────────────────── INSTALL ───────────────────────── -->
+    <section class="band install" id="install" data-state="speaking">
+      <header class="band__head">
+        <p class="eyebrow" data-reveal>Get Lo</p>
+        <h2 class="band__title" data-reveal>Download and start talking.</h2>
+        <p class="band__lede" data-reveal>
+          Grab the installer for your platform. On first launch Lo downloads its speech and
+          language models once, then caches them for offline use.
+        </p>
+      </header>
+
+      <div class="platforms" data-reveal>
+        <article class="platform">
+          <h3 class="platform__name">macOS</h3>
+          <p class="platform__art">.dmg</p>
+          <p class="platform__note">Apple Silicon or Intel. Metal&nbsp;+&nbsp;CoreML acceleration baked in.</p>
+        </article>
+        <article class="platform">
+          <h3 class="platform__name">Windows</h3>
+          <p class="platform__art">.msi · .exe</p>
+          <p class="platform__note">x64 installer or setup. Optional CUDA / Vulkan / DirectML.</p>
+        </article>
+        <article class="platform">
+          <h3 class="platform__name">Linux</h3>
+          <p class="platform__art">.deb · .AppImage</p>
+          <p class="platform__note">Portable AppImage or a Debian package. Optional CUDA / Vulkan / ROCm.</p>
+        </article>
+      </div>
+
+      <div class="install__cta" data-reveal>
+        <a class="btn btn--solid btn--lg" href="https://github.com/Rani367/lo/releases">
+          Download from GitHub Releases
+        </a>
+        <p class="install__fineprint">
+          Builds are currently unsigned — on macOS, right-click → Open the first time.
+          See <a href="https://github.com/Rani367/lo/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>.
+        </p>
+      </div>
+
+      <div class="from-source" data-reveal>
+        <p class="from-source__label">Or build it from source</p>
+        <pre class="code"><span class="code__c">cargo</span> run -p lo</pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" data-state="idle">
+    <p class="site-footer__line">Lo — a fast, local agent that gets things done.</p>
+    <nav class="site-footer__nav" aria-label="Footer">
+      <a href="https://github.com/Rani367/lo" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/Rani367/lo/releases">Releases</a>
+      <a href="https://github.com/Rani367/lo/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+      <a href="https://github.com/Rani367/lo/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+    </nav>
+    <p class="site-footer__meta">MIT · © <span id="year">2026</span> Rani367 · built in pure Rust</p>
+  </footer>
+
+  <script src="orb.js" defer></script>
+  <script src="main.js" defer></script>
+</body>
+</html>
