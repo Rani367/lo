@@ -156,25 +156,88 @@ cargo build -p lo --release --features ml,asr-hipblas   # AMD ROCm (Linux)
 ## Architecture
 
 ```
-lo/
-├── crates/
-│   ├── lo-core/                 # pure logic — no GPU/audio/ML deps; exhaustively unit-tested
-│   │   ├── assets/shaders/orb.wgsl
-│   │   └── src/ {types, config/, text, brain/, backends/, tools/}
-│   └── lo/                      # the binary: GUI + audio + ML + glue
-│       ├── assets/ {icons, macos/Info.plist, linux/lo.desktop}
-│       └── src/
-│           ├── main.rs · events.rs            # entry + threading; graceful shutdown
-│           ├── app/ {mod, state}              # winit handler + turn/epoch state machine
-│           ├── gui/ {mod, orb, captions}      # wgpu orb pass + egui captions
-│           ├── audio/ {capture, playback, resample, spectrum}   # cpal duplex
-│           ├── ml/ {asr, tts, vad, download}  # whisper-rs / Kokoro / Silero
-│           ├── brain/                         # streaming HTTP client (retry/backoff)
-│           ├── backends/ {managed_server, download, …}          # process supervision
-│           ├── tools/                         # the OS-action tool bodies
-│           ├── worker.rs                      # tokio agent loop + TTS thread
-│           └── listen.rs                      # capture-draining ASR/VAD thread
-└── .github/workflows/ {ci.yml, release.yml}
+crates
+├── lo                          # the binary: winit/wgpu UI, cpal audio, on-device ML, glue
+│   ├── assets
+│   │   ├── icons
+│   │   │   ├── icon.icns
+│   │   │   ├── icon.ico
+│   │   │   └── icon.png
+│   │   ├── linux
+│   │   │   └── lo.desktop
+│   │   └── macos
+│   │       └── Info.plist
+│   ├── src
+│   │   ├── app                 # winit handler + turn/epoch state machine
+│   │   │   ├── mod.rs
+│   │   │   └── state.rs
+│   │   ├── audio               # cpal duplex: capture, playback, resample, spectrum
+│   │   │   ├── capture.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── playback.rs
+│   │   │   ├── resample.rs
+│   │   │   └── spectrum.rs
+│   │   ├── backends            # process supervision for MLX / llama-server
+│   │   │   ├── download.rs
+│   │   │   ├── managed_server.rs
+│   │   │   └── mod.rs
+│   │   ├── brain               # streaming HTTP client (retry/backoff)
+│   │   │   └── mod.rs
+│   │   ├── gui                 # wgpu orb pass + egui captions
+│   │   │   ├── captions.rs
+│   │   │   ├── mod.rs
+│   │   │   └── orb.rs
+│   │   ├── ml                  # whisper-rs ASR / Kokoro TTS / Silero VAD
+│   │   │   ├── asr.rs
+│   │   │   ├── download.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── tts.rs
+│   │   │   └── vad.rs
+│   │   ├── tools               # the OS-action tool bodies (web/files/shell/…)
+│   │   │   ├── clipboard.rs
+│   │   │   ├── desktop.rs
+│   │   │   ├── files.rs
+│   │   │   ├── media.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── shell.rs
+│   │   │   ├── system.rs
+│   │   │   ├── timer.rs
+│   │   │   └── web.rs
+│   │   ├── events.rs           # inter-thread message contracts
+│   │   ├── listen.rs           # capture-draining ASR/VAD thread
+│   │   ├── main.rs             # entry + threading; graceful shutdown
+│   │   └── worker.rs           # tokio agent loop + TTS thread
+│   └── Cargo.toml
+└── lo-core                     # pure logic — no GPU/audio/ML deps; exhaustively unit-tested
+    ├── assets
+    │   └── shaders
+    │       └── orb.wgsl
+    ├── src
+    │   ├── backends            # engine selection, model RAM ladder, download URLs
+    │   │   ├── download.rs
+    │   │   ├── mod.rs
+    │   │   └── models.rs
+    │   ├── brain               # agent loop + SSE parsing
+    │   │   ├── mod.rs
+    │   │   ├── sse.rs
+    │   │   └── types.rs
+    │   ├── config              # settings, paths, persona, history, options
+    │   │   ├── history.rs
+    │   │   ├── mod.rs
+    │   │   ├── options.rs
+    │   │   ├── paths.rs
+    │   │   └── persona.rs
+    │   ├── tools               # registry, safety gate, audit, sandbox, SSRF guard
+    │   │   ├── audit.rs
+    │   │   ├── mod.rs
+    │   │   ├── sandbox.rs
+    │   │   ├── shell.rs
+    │   │   └── ssrf.rs
+    │   ├── lib.rs
+    │   ├── shaders.rs
+    │   ├── text.rs             # TTS sentence chunking + directive stripping
+    │   └── types.rs
+    └── Cargo.toml
 ```
 
 `lo-core` holds everything that needs no GPU/audio/ML native toolchain, so it builds
